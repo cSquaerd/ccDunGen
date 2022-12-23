@@ -242,3 +242,92 @@ class Line:
 			return ('e', Point(1, 0))
 		return ()
 
+class Circle:
+    
+    def __init__(self, x : int, y : int, r : int):
+        self.origin = Point(x, y)
+        self.radius = abs(r)
+        self.edgePoints = {}
+        self.refreshEdgePoints()
+        
+    def refreshEdgePoints(self, charliesMethod : bool = True):
+        firstQuarter = []
+        p = Point(self.radius, 0)
+        while p.x > 0:
+            firstQuarter.append(p)
+            nextPoints = (Point(p.x - 1, p.y), Point(p.x, p.y + 1), Point(p.x - 1, p.y + 1))
+            XY = np.stack(tuple(p.tupl for p in nextPoints))
+            
+            if charliesMethod:
+                nextPointsWithinRange = []
+                for i in np.where(
+                    XY[:, 0] ** 2 + XY[:, 1] ** 2 - (
+                        self.radius ** 2 + int(self.radius ** 0.5)
+                    ) <= 0
+                )[0]:
+                    nextPointsWithinRange.append(nextPoints[i])
+                    
+                XYWithinRange = np.stack(tuple(p.tupl for p in nextPointsWithinRange))
+                
+                p = nextPointsWithinRange[
+                    np.argmax(
+                        XYWithinRange[:, 0] ** 2 + XYWithinRange[:, 1] ** 2
+                    )
+                ]
+            else:
+                
+                p = nextPoints[
+                    np.argmin(
+                        np.abs(
+                            XY[:, 0] ** 2 + XY[:, 1] ** 2 - (
+                                self.radius ** 2 + int(self.radius ** 0.5)
+                            )
+                        )
+                    )
+                ]
+        
+        fqA = np.array(tuple(p.tupl for p in firstQuarter), int).transpose()
+        sqR, tqR, rqR = (
+            np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
+            for t in (np.pi / 2, np.pi, 3 * np.pi / 2)
+        )
+        secondQuarter = (sqR @ fqA).round().astype(int).transpose().tolist()
+        thirdQuarter = (tqR @ fqA).round().astype(int).transpose().tolist()
+        fourthQuarter = (rqR @ fqA).round().astype(int).transpose().tolist()
+        
+        self.edgePoints = {p + self.origin for p in firstQuarter} \
+            | {Point(*p) + self.origin for p in secondQuarter} \
+            | {Point(*p) + self.origin for p in thirdQuarter} \
+            | {Point(*p) + self.origin for p in fourthQuarter}
+        
+    def getMinFrame(self) -> Point:
+        return self.origin + Point(self.radius + 1, self.radius + 1)
+        
+    def getMaskEdge(self, fw : int = 0, fh : int = 0) -> np.array:
+        if fw == 0 or fh == 0:
+            f = self.getMinFrame()
+            fw = f.x
+            fh = f.y
+            
+        M = np.zeros((fh, fw), bool)
+        
+        for p in self.edgePoints:
+            M[p.y, p.x] = 1
+            
+        return M
+    
+    def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
+        M = self.getMaskEdge(fw, fh)
+        
+        queue = [self.origin]
+        while len(queue) > 0:
+            p = queue.pop()
+            if M[p.y, p.x] == 0:
+                M[p.y, p.x] = 1
+                queue.insert(0, Point(p.x, p.y - 1))
+                queue.insert(0, Point(p.x - 1, p.y))
+                queue.insert(0, Point(p.x, p.y + 1))
+                queue.insert(0, Point(p.x + 1, p.y))
+                
+        return M
+    
