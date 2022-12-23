@@ -30,8 +30,53 @@ class Point:
 		p = self.npar * scalar
 		return Point(p[1], p[0])
 
+# Base shape class
+class Shape:
+	# Placeholder, subclass must implement!
+	def getCentroid(self) -> Point:
+		return Point(0, 0)
+	# Placeholder, subclass must implement!
+	def getMinFrame(self) -> Point:
+		return Point(0, 0)
+	# Placeholder, subclass must implement!
+	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
+		return np.zeros(1, bool)
+	# Determine if the shape fits with an arbitrary frame
+	def isInBounds(self, frame : Point) -> bool:
+		return np.all(self.getMinFrame().npar <= frame.npar)
+	# Use the mask method to determine if this rectangle overlaps with another
+	def overlaps(self, other) -> bool:
+		smf = self.getMinFrame()
+		omf = other.getMinFrame()
+		w = max(smf.x, omf.x)
+		h = max(smf.y, omf.y)
+		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) > 0
+	# Turn the overlap method into an operator (not commutative!) (IT IS, YOU IDIOT!!)
+	def __and__(self, other) -> bool:
+		return self.overlaps(other)
+	# Determine the bearing towards another shape (its centroid in particular)
+	def getAzimuth(self, other) -> float:
+		vector = self.getCentroid() - other.getCentroid()
+		"""
+		To go from trig angles (
+			start at 3 o'clock, counterclockwise
+		) to azimuths (
+			start at 6 o'clock (
+				not noon since y increseas downward in graphics
+			), clockwise (
+				but this is cancelled out by Graphics Space being right-handed,
+				compared to Cartesian Space, which is left-handed;
+				In right-handed trig, angles increase clockwise (think about it!)
+			)
+		), we need to rotate 90 degrees to the right to bring the trig 0-axis
+		to meet the place for the azimuth 0-axis.
+		Mathematcially, this is $\theta + 90$. Since we don't want negative azimuths,
+		we mod by 360 to wind negatives around.
+		"""
+		return ((np.arctan2(vector.y, vector.x) * 180. / np.pi) + 90.) % 360.
+
 # Numpy supporting rectangle class
-class Rectangle:
+class Rectangle(Shape):
 	# Needs a coordinate for the northwest corner (nearest to origin), a width, and height
 	def __init__(self, x : int, y : int, w : int, h : int):
 		self.origin = Point(x, y)
@@ -81,9 +126,6 @@ class Rectangle:
 	# Determine the minimum graphic frame for the rectangle
 	def getMinFrame(self) -> Point:
 		return self.origin + Point(self.width, self.height)
-	# Determine if the rectangle fits with an arbitrary frame
-	def isInBounds(self, frame : Point) -> bool:
-		return np.all(self.getMinFrame().npar <= frame.npar)
 	# Get a binary numpy mask array with the rectangle filled in, to arbitrary frame size
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
 		if fw == 0 or fh == 0:
@@ -109,16 +151,6 @@ class Rectangle:
 		] = 0
 		
 		return M
-	# Use the above mask method to determine if this rectangle overlaps with another
-	def overlaps(self, other) -> bool:
-		smf = self.getMinFrame()
-		omf = other.getMinFrame()
-		w = max(smf.x, omf.x)
-		h = max(smf.y, omf.y)
-		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) > 0
-	# Turn the overlap method into an operator (not commutative!) (IT IS, YOU IDIOT!!)
-	def __and__(self, other) -> bool:
-		return self.overlaps(other)
 	# Compute the percentage of how much of this rectangle overlaps with another
 	def percentOverlap(self, other) -> float:
 		smf = self.getMinFrame()
@@ -126,18 +158,6 @@ class Rectangle:
 		w = max(smf.x, omf.x)
 		h = max(smf.y, omf.y)
 		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) / self.area
-	# Determine the bearing towards another rectangle
-	def getAzimuth(self, other) -> float:
-		vector = self.getCentroid() - other.getCentroid()
-		"""
-		To go from trig angles (start at 3 o'clock, counterclockwise) to azimuths
-		(start at 6 o'clock (not noon since y increseas downward in graphics),
-		also counterclockwise), we need to rotate 90 degrees to the right
-		to bring the trig 0-axis to meet the place for the azimuth 0-axis.
-		Mathematcially, this is $\theta + 90$. Since we don't want negative azimuths,
-		we mod by 360 to wind negatives around.
-		"""
-		return ((np.arctan2(vector.y, vector.x) * 180. / np.pi) + 90.) % 360.
 	# Determine the closest wall that faces another rectangle
 	def getNearestWall(self, other) -> set:
 		a = self.getAzimuth(other)
@@ -152,7 +172,7 @@ class Rectangle:
 		return {}
 
 # Numpy supporting line class
-class Line:
+class Line(Shape):
 	# Needs a coordinate, a length, and an orientation
 	def __init__(self, x : int, y : int, l : int, o : str):
 		o = o.lower()[0]
@@ -209,23 +229,13 @@ class Line:
 	# Allow for interoperability with overlaps for rectangles and circles
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
 		return self.getMask(fw, fh)
-	# Use the above mask method to determine if this line overlaps another
-	def overlaps(self, other) -> bool:
-		smf = self.getMinFrame()
-		omf = other.getMinFrame()
-		w = max(smf.x, omf.x)
-		h = max(smf.y, omf.y)
-		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) > 0
-	# Turn the above overlap method into an operator
-	def __and__(self, other) -> bool:
-		return self.overlaps(other)
 	# Determine the bearing to another line (or rectangle, centroid mode only!)
 	def getAzimuth(self, other, mode = 'c') -> float:
 		if mode.lower()[0] == 'e':
 			vector = self.getEndpoint() - other.getEndpoint()
 		else:
 			vector = self.getCentroid() - other.getCentroid()
-		# See description in Rectangle class for why this works
+		# See description in shape class for why this works
 		return ((np.arctan2(vector.y, vector.x) * 180. / np.pi) + 90.) % 360.
 	# Determine which cardinal direction leads closest to another line
 	# (or rectangle, centroid mode only like above!)
@@ -242,7 +252,7 @@ class Line:
 		return ()
 
 # Numpy supporting circle class
-class Circle:
+class Circle(Shape):
 	# Needs a coordinate and radius
 	def __init__(self, x : int, y : int, r : int):
 		self.origin = Point(x, y)
@@ -303,10 +313,13 @@ class Circle:
 		self.edgePoints = {p + self.origin for p in firstQuarter} \
 			| {Point(*p) + self.origin for p in secondQuarter} \
 			| {Point(*p) + self.origin for p in thirdQuarter} \
-			| {Point(*p) + self.origin for p in fourthQuarter}
+			| {Point(*p) + self.origin for p in fourthQuarter} 
 	# Determine the minimum graphic frame for the circle
 	def getMinFrame(self) -> Point:
 		return self.origin + Point(self.radius + 1, self.radius + 1)
+	# Return the center cell of the cirlce
+	def getCentroid(self) -> Point:
+		return self.origin
 	# Get a binary numpy mask array with the circle's edge only, to arbitrary frame size
 	def getMaskEdge(self, fw : int = 0, fh : int = 0) -> np.array:
 		if fw == 0 or fh == 0:
