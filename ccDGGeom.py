@@ -2,7 +2,7 @@ import numpy as np
 np.set_printoptions(
 	linewidth = 128, precision = 3,
 	formatter = {"bool" : lambda b : '#' if b else '_'}
-)
+) # Above makes pre-imaging debugging easier to view
 
 # Numpy supporting point class
 class Point:
@@ -78,10 +78,10 @@ class Rectangle:
 	# Determine the center cell of the rectangle
 	def getCentroid(self) -> Point:
 		return self.origin + Point(self.width // 2, self.height // 2)
-
+	# Determine the minimum graphic frame for the rectangle
 	def getMinFrame(self) -> Point:
 		return self.origin + Point(self.width, self.height)
-
+	# Determine if the rectangle fits with an arbitrary frame
 	def isInBounds(self, frame : Point) -> bool:
 		return np.all(self.getMinFrame().npar <= frame.npar)
 	# Get a binary numpy mask array with the rectangle filled in, to arbitrary frame size
@@ -116,7 +116,7 @@ class Rectangle:
 		w = max(smf.x, omf.x)
 		h = max(smf.y, omf.y)
 		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) > 0
-	# Turn the overlap method into an operator (not commutative!)
+	# Turn the overlap method into an operator (not commutative!) (IT IS, YOU IDIOT!!)
 	def __and__(self, other) -> bool:
 		return self.overlaps(other)
 	# Compute the percentage of how much of this rectangle overlaps with another
@@ -168,11 +168,11 @@ class Line:
 	# Determine the cell at the end of the line
 	def getEndpoint(self) -> Point:
 		return self.origin + self.orient * (self.length - 1)
-
+	# Determine the minimum graphic frame for the line
 	def getMinFrame(self) -> Point:
 		e = self.getEndpoint()
 		return Point(max(self.origin.x, e.x) + 1, max(self.origin.y, e.y) + 1)
-
+	# Determine if the line fits within an arbitrary frame
 	def isInBounds(self, frame : Point) -> bool:
 		return np.all(self.getMinFrame().npar <= frame.npar)
 	# Get a binary numpy mask array with the line drawn, arbitrary frame size
@@ -206,20 +206,19 @@ class Line:
 		M[pi.y:pf.y, pi.x:pf.x] = 1
 		
 		return M
-
+	# Allow for interoperability with overlaps for rectangles and circles
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
 		return self.getMask(fw, fh)
-
+	# Use the above mask method to determine if this line overlaps another
 	def overlaps(self, other) -> bool:
 		smf = self.getMinFrame()
 		omf = other.getMinFrame()
 		w = max(smf.x, omf.x)
 		h = max(smf.y, omf.y)
 		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) > 0
-
+	# Turn the above overlap method into an operator
 	def __and__(self, other) -> bool:
 		return self.overlaps(other)
-
 	# Determine the bearing to another line (or rectangle, centroid mode only!)
 	def getAzimuth(self, other, mode = 'c') -> float:
 		if mode.lower()[0] == 'e':
@@ -242,92 +241,99 @@ class Line:
 			return ('e', Point(1, 0))
 		return ()
 
+# Numpy supporting circle class
 class Circle:
-    
-    def __init__(self, x : int, y : int, r : int):
-        self.origin = Point(x, y)
-        self.radius = abs(r)
-        self.edgePoints = {}
-        self.refreshEdgePoints()
-        
-    def refreshEdgePoints(self, charliesMethod : bool = True):
-        firstQuarter = []
-        p = Point(self.radius, 0)
-        while p.x > 0:
-            firstQuarter.append(p)
-            nextPoints = (Point(p.x - 1, p.y), Point(p.x, p.y + 1), Point(p.x - 1, p.y + 1))
-            XY = np.stack(tuple(p.tupl for p in nextPoints))
-            
-            if charliesMethod:
-                nextPointsWithinRange = []
-                for i in np.where(
-                    XY[:, 0] ** 2 + XY[:, 1] ** 2 - (
-                        self.radius ** 2 + int(self.radius ** 0.5)
-                    ) <= 0
-                )[0]:
-                    nextPointsWithinRange.append(nextPoints[i])
-                    
-                XYWithinRange = np.stack(tuple(p.tupl for p in nextPointsWithinRange))
-                
-                p = nextPointsWithinRange[
-                    np.argmax(
-                        XYWithinRange[:, 0] ** 2 + XYWithinRange[:, 1] ** 2
-                    )
-                ]
-            else:
-                
-                p = nextPoints[
-                    np.argmin(
-                        np.abs(
-                            XY[:, 0] ** 2 + XY[:, 1] ** 2 - (
-                                self.radius ** 2 + int(self.radius ** 0.5)
-                            )
-                        )
-                    )
-                ]
-        
-        fqA = np.array(tuple(p.tupl for p in firstQuarter), int).transpose()
-        sqR, tqR, rqR = (
-            np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
-            for t in (np.pi / 2, np.pi, 3 * np.pi / 2)
-        )
-        secondQuarter = (sqR @ fqA).round().astype(int).transpose().tolist()
-        thirdQuarter = (tqR @ fqA).round().astype(int).transpose().tolist()
-        fourthQuarter = (rqR @ fqA).round().astype(int).transpose().tolist()
-        
-        self.edgePoints = {p + self.origin for p in firstQuarter} \
-            | {Point(*p) + self.origin for p in secondQuarter} \
-            | {Point(*p) + self.origin for p in thirdQuarter} \
-            | {Point(*p) + self.origin for p in fourthQuarter}
-        
-    def getMinFrame(self) -> Point:
-        return self.origin + Point(self.radius + 1, self.radius + 1)
-        
-    def getMaskEdge(self, fw : int = 0, fh : int = 0) -> np.array:
-        if fw == 0 or fh == 0:
-            f = self.getMinFrame()
-            fw = f.x
-            fh = f.y
-            
-        M = np.zeros((fh, fw), bool)
-        
-        for p in self.edgePoints:
-            M[p.y, p.x] = 1
-            
-        return M
-    
-    def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
-        M = self.getMaskEdge(fw, fh)
-        
-        queue = [self.origin]
-        while len(queue) > 0:
-            p = queue.pop()
-            if M[p.y, p.x] == 0:
-                M[p.y, p.x] = 1
-                queue.insert(0, Point(p.x, p.y - 1))
-                queue.insert(0, Point(p.x - 1, p.y))
-                queue.insert(0, Point(p.x, p.y + 1))
-                queue.insert(0, Point(p.x + 1, p.y))
-                
-        return M
-    
+	# Needs a coordinate and radius
+	def __init__(self, x : int, y : int, r : int):
+		self.origin = Point(x, y)
+		self.radius = abs(r)
+		self.edgePoints = {}
+		self.refreshEdgePoints()
+	# Use a version of the midpoint circle algorithm to compute the edge cells of the circle
+	def refreshEdgePoints(self, charliesMethod : bool = True):
+		firstQuarter = []
+		p = Point(self.radius, 0) # Start at (r, 0)
+		# Build up from 0 to pi/2 radians in quadrant 1
+		while p.x > 0:
+			firstQuarter.append(p)
+			nextPoints = (
+				Point(p.x - 1, p.y),
+				Point(p.x, p.y + 1),
+				Point(p.x - 1, p.y + 1)
+			)
+			XY = np.stack(tuple(p.tupl for p in nextPoints)) # Vectorize next points
+			
+			if charliesMethod: # Filter out points that are too far out first
+				nextPointsWithinRange = []
+				for i in np.where(
+					XY[:, 0] ** 2 + XY[:, 1] ** 2 - (
+						self.radius ** 2 + int(self.radius ** 0.5)
+					) <= 0
+				)[0]:
+					nextPointsWithinRange.append(nextPoints[i])
+					
+				XYWithinRange = np.stack(tuple(p.tupl for p in nextPointsWithinRange))
+				# Take the farthest out point that passed the above filter
+				p = nextPointsWithinRange[
+					np.argmax(
+						XYWithinRange[:, 0] ** 2 + XYWithinRange[:, 1] ** 2
+					)
+				]
+			else: # Standard vectorized midpoint circle algorithm (I think?)
+				p = nextPoints[
+					np.argmin(
+						np.abs(
+							XY[:, 0] ** 2 + XY[:, 1] ** 2 - (
+								self.radius ** 2 + int(self.radius ** 0.5)
+							)
+						)
+					)
+				]
+		# Vectorize the quadrant 1 points then apply rotation matrices to them
+		fqA = np.array(tuple(p.tupl for p in firstQuarter), int).transpose()
+		sqR, tqR, rqR = (
+			np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
+			for t in (np.pi / 2, np.pi, 3 * np.pi / 2)
+		)
+		# After rotating, bring them back to ints and back to a list of lists
+		secondQuarter = (sqR @ fqA).round().astype(int).transpose().tolist()
+		thirdQuarter = (tqR @ fqA).round().astype(int).transpose().tolist()
+		fourthQuarter = (rqR @ fqA).round().astype(int).transpose().tolist()
+		# Apply a translation to all points
+		self.edgePoints = {p + self.origin for p in firstQuarter} \
+			| {Point(*p) + self.origin for p in secondQuarter} \
+			| {Point(*p) + self.origin for p in thirdQuarter} \
+			| {Point(*p) + self.origin for p in fourthQuarter}
+	# Determine the minimum graphic frame for the circle
+	def getMinFrame(self) -> Point:
+		return self.origin + Point(self.radius + 1, self.radius + 1)
+	# Get a binary numpy mask array with the circle's edge only, to arbitrary frame size
+	def getMaskEdge(self, fw : int = 0, fh : int = 0) -> np.array:
+		if fw == 0 or fh == 0:
+			f = self.getMinFrame()
+			fw = f.x
+			fh = f.y
+			
+		M = np.zeros((fh, fw), bool)
+		
+		for p in self.edgePoints:
+			M[p.y, p.x] = 1
+			
+		return M
+	# Use flood fill to get a binary numpy mask array with the circle filled in,
+	# to arbitrary frame size
+	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
+		M = self.getMaskEdge(fw, fh)
+		
+		queue = [self.origin]
+		while len(queue) > 0:
+			p = queue.pop()
+			if M[p.y, p.x] == 0:
+				M[p.y, p.x] = 1
+				queue.insert(0, Point(p.x, p.y - 1))
+				queue.insert(0, Point(p.x - 1, p.y))
+				queue.insert(0, Point(p.x, p.y + 1))
+				queue.insert(0, Point(p.x + 1, p.y))
+				
+		return M
+
