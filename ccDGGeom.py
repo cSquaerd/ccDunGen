@@ -59,7 +59,7 @@ class Shape:
 		return self.overlaps(other)
 	# Determine the bearing towards another shape (its centroid in particular)
 	def getAzimuth(self, other) -> float:
-		vector = self.getCentroid() - other.getCentroid()
+		vector = other.getCentroid() - self.getCentroid()
 		"""
 		To go from trig angles (
 			start at 3 o'clock, counterclockwise
@@ -73,10 +73,10 @@ class Shape:
 			)
 		), we need to rotate 90 degrees to the right to bring the trig 0-axis
 		to meet the place for the azimuth 0-axis.
-		Mathematcially, this is $\theta + 90$. Since we don't want negative azimuths,
+		Mathematcially, this is $\theta - 90$. Since we don't want negative azimuths,
 		we mod by 360 to wind negatives around.
 		"""
-		return ((np.arctan2(vector.y, vector.x) * 180. / np.pi) + 90.) % 360.
+		return ((np.arctan2(vector.y, vector.x) * 180. / np.pi) - 90.) % 360.
 
 # Numpy supporting rectangle class
 class Rectangle(Shape):
@@ -278,10 +278,10 @@ class Circle(Shape):
 	def __init__(self, x : int, y : int, r : int):
 		self.origin = Point(x, y)
 		self.radius = abs(r)
-		self.edgePoints = {}
-		self.refreshEdgePoints()
+		self.edgeCells = {}
+		self.refreshEdgeCells()
 	# Use a version of the midpoint circle algorithm to compute the edge cells of the circle
-	def refreshEdgePoints(self, charliesMethod : bool = True):
+	def refreshEdgeCells(self, charliesMethod : bool = True):
 		firstQuarter = []
 		p = Point(self.radius, 0) # Start at (r, 0)
 		# Build up from 0 to pi/2 radians in quadrant 1
@@ -331,7 +331,7 @@ class Circle(Shape):
 		thirdQuarter = (tqR @ fqA).round().astype(int).transpose().tolist()
 		fourthQuarter = (rqR @ fqA).round().astype(int).transpose().tolist()
 		# Apply a translation to all points
-		self.edgePoints = {p + self.origin for p in firstQuarter} \
+		self.edgeCells = {p + self.origin for p in firstQuarter} \
 			| {Point(*p) + self.origin for p in secondQuarter} \
 			| {Point(*p) + self.origin for p in thirdQuarter} \
 			| {Point(*p) + self.origin for p in fourthQuarter} 
@@ -350,7 +350,7 @@ class Circle(Shape):
 			
 		M = np.zeros((fh, fw), bool)
 		
-		for p in self.edgePoints:
+		for p in self.edgeCells:
 			M[p.y, p.x] = 1
 			
 		return M
@@ -370,4 +370,42 @@ class Circle(Shape):
 				queue.insert(0, Point(p.x + 1, p.y))
 				
 		return M
+	# Determine the best edge cell of this circle given a bearing
+	def getAngledEdgeCell(self, azimuth : float) -> Point:
+		# Since we -90 deg to go from trig to azimuth, we undo that to go back
+		theta = (azimuth + 90.) % 360.
+
+		trigStuff = np.array([
+			np.sin(theta * np.pi / 180.),
+			np.cos(theta * np.pi / 180.)
+		])
+
+		estimate = self.origin + Point(
+			*( # Fuck you, we unpack iterables in my code!
+				(self.origin.npar * trigStuff).round().astype(int).tolist()[::-1]
+			)
+		)
+		edgeArray = np.vstack([p.npar for p in self.edgeCells])
+
+		correct = np.count_nonzero(np.all(estimate.npar == edgeArray, axis = 1))
+
+		if not correct:
+			return Point(
+				*( # Unpack into individual parameters
+					edgeArray[
+						np.argmin( # Index of smallest total deviated cell
+							np.sum( # Total taxicab deviation per cell
+								np.abs( #Absolute deviation per axis
+									edgeArray - estimate.npar
+								), axis = 1
+							)
+						)
+					][::-1] # Reverse from (y, x) to (x, y)
+				)
+			)
+
+		return estimate
+
+
+
 
