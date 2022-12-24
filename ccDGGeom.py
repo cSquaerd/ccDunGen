@@ -29,6 +29,9 @@ class Point:
 	def __mul__(self, scalar : int):
 		p = self.npar * scalar
 		return Point(p[1], p[0])
+	# Manhattan distance
+	def __or__(self, other) -> int:
+		return abs(self.x - other.x) + abs(self.y - other.y)
 
 # Base shape class
 class Shape:
@@ -96,11 +99,29 @@ class Rectangle(Shape):
 	def refreshEdgeCells(self):
 		yi = self.origin.y
 		xi = self.origin.x
+
 		self.corners = {
 			Point(xi + xo, yi + yo)
 			for xo in (0, self.width - 1)
 			for yo in (0, self.height - 1)
 		}
+
+		C = self.getCentroid().npar - np.array([c.npar for c in self.corners], int)
+		azimuths = ((np.arctan2(C[:, 0], C[:, 1]) * 180. / np.pi) + 90.) % 360.
+
+		self.azi45 = azimuths[
+			np.where((azimuths > 0.) & (azimuths <= 90.))[0][0]
+		]
+		self.azi135 = azimuths[
+			np.where((azimuths > 90.) & (azimuths <= 180.))[0][0]
+		]
+		self.azi225 = azimuths[
+			np.where((azimuths > 180.) & (azimuths <= 270.))[0][0]
+		]
+		self.azi315 = azimuths[
+			np.where((azimuths > 270.) & (azimuths <= 360.))[0][0]
+		]
+
 		self.edgeCellsNorth = {
 			Point(xe, yi)
 			for xe in range(xi + 1, xi + self.width - 1)
@@ -159,17 +180,17 @@ class Rectangle(Shape):
 		h = max(smf.y, omf.y)
 		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) / self.area
 	# Determine the closest wall that faces another rectangle
-	def getNearestWall(self, other) -> set:
+	def getNearestWall(self, other) -> tuple:
 		a = self.getAzimuth(other)
-		if a > 315. or a <= 45.:
-			return self.edgeCellsSouth
-		elif a > 45. and a <= 135.:
-			return self.edgeCellsWest
-		elif a > 135. and a <= 225.:
-			return self.edgeCellsNorth
-		elif a > 225. and a <= 315.:
-			return self.edgeCellsEast
-		return {}
+		if a > self.azi315 or a <= self.azi45:
+			return ('s', self.edgeCellsSouth)
+		elif a > self.azi45 and a <= self.azi135:
+			return ('w', self.edgeCellsWest)
+		elif a > self.azi135 and a <= self.azi225:
+			return ('n', self.edgeCellsNorth)
+		elif a > self.azi225 and a <= self.azi315:
+			return ('e', self.edgeCellsEast)
+		return ()
 
 # Numpy supporting line class
 class Line(Shape):
