@@ -29,7 +29,7 @@ class Point:
 	def __mul__(self, scalar : int):
 		p = self.npar * scalar
 		return Point(p[1], p[0])
-	# Manhattan distance
+	# Manhattan a.k.a. taxicab distance
 	def __or__(self, other) -> int:
 		return abs(self.x - other.x) + abs(self.y - other.y)
 
@@ -105,10 +105,10 @@ class Rectangle(Shape):
 			for xo in (0, self.width - 1)
 			for yo in (0, self.height - 1)
 		}
-
+		# Compute the azimuth boundary angles based on the corners
 		C = self.getCentroid().npar - np.array([c.npar for c in self.corners], int)
 		azimuths = ((np.arctan2(C[:, 0], C[:, 1]) * 180. / np.pi) + 90.) % 360.
-
+		# Use these down in getNearestWall
 		self.azi45 = azimuths[
 			np.where((azimuths > 0.) & (azimuths <= 90.))[0][0]
 		]

@@ -4,20 +4,22 @@ from ccDGGeom import np, Point, Rectangle, Line, Circle
 class Catacombs:
 	def __init__(
 		self, w : int, h : int,
-		rct : int, conn : int,
-		raap : float,
+		rct : int, raap : float,
 		varix : int, variy : int,
+		conn : int, doShift : bool,
 		padx : int = 0, pady : int = 0
 	):
 		self.size = Point(w, h)
 		self.roomCount = rct
-		self.hallAvgCount = conn
 		self.roomAvgAreaPercent = raap
 		self.variance = Point(varix, variy)
 		self.padding = Point(padx, pady)
 		# Average dimension of each room
 		adim = (self.size.npar * np.sqrt(self.roomAvgAreaPercent)).astype(int)
 		self.roomAvgDim = Point(adim[1], adim[0])
+
+		self.hallAvgCount = conn
+		self.doHallShifting = doShift
 		# Store the rooms and halls in these lists, must generate them separately
 		self.rooms = []
 		self.halls = []
@@ -49,6 +51,8 @@ class Catacombs:
 		
 		self.rooms = []
 		self.halls = []
+		self.hallCounts = [0 for i in range(len(self.rooms))]
+		
 		attempts = 0
 		if attemptsOverride > 0:
 			maxAttempts = attemptsOverride
@@ -102,41 +106,35 @@ class Catacombs:
 					print("Your dungeon will only have", len(self.rooms), "rooms")
 				break
 
-		self.hallCounts = [0 for i in range(len(self.rooms))]
-		
 		print("Attemped room generations", attempts, "times.")
 
 	def genHalls(self, reset : bool = False):
 		if not reset:
 			return
-	
+		# Erase old hallways	
 		self.halls = []
-
+		self.hallCounts = [0 for i in range(len(self.rooms))]
+		
+		# Proceed from room to room
 		for i in range(len(self.rooms)):
 			room = self.rooms[i]
-
+			# Get taxicab distances from current room centroid to every other rooms centroid
 			distances = [
 				[j, room.getCentroid() | self.rooms[j].getCentroid()]
 				for j in range(len(self.rooms))
 			]
-			distances[i][1] = 2 * max([t[1] for t in distances])
+			distances[i][1] = 2 * max([t[1] for t in distances]) # Eliminate own distance
 			distances = sorted(distances, key = lambda t : t[1])[:len(distances) - 1]
 			print(distances)
 
-			j = 0
-			#for otherInfo in distances[:self.hallAvgCount - self.hallCounts[i]]:
+			k = 0
 			while self.hallCounts[i] < self.hallAvgCount:
-				k = distances[j][0]
-				mhDist = distances[j][1]
-				other = self.rooms[k]
-
-				wallInfo = room.getNearestWall(other)
-				wallOrient = wallInfo[0]
-				wallCells = wallInfo[1]
-
-				wallOtherInfo = other.getNearestWall(room)
-				wallOtherOrient = wallOtherInfo[0]
-				wallOtherCells = wallOtherInfo[1]
+				j = distances[k][0] # Index of next nearest other room
+				mhDist = distances[k][1]
+				other = self.rooms[j]
+				# Tuple unpacking
+				wallOrient, wallCells = room.getNearestWall(other)
+				wallOtherOrient, wallOtherCells = other.getNearestWall(room)
 
 				print(i, j, k, room.getAzimuth(other), wallOrient, len(wallCells))
 
@@ -154,17 +152,26 @@ class Catacombs:
 				print(startRoom, startOther, dx, dy)
 
 				if wallOrient in ('n', 's') and wallOtherOrient in ('n', 's') \
-					or wallOrient in ('e', 'w') and wallOtherOrient in ('e', 'w'):				
+					or wallOrient in ('e', 'w') and wallOtherOrient in ('e', 'w'):
+					# Randomly shift the meeting point of the hallways
+					if self.doHallShifting:
+						shiftRange = self.padding.x // 2 if wallOrient in ('e', 'w') \
+						else self.padding.y // 2
+						shift = np.random.randint(-shiftRange, shiftRange + 1)
+						print(shiftRange, shift)
+					else:
+						shift = 0
+
 					roomHall = Line(
 						startRoom.x, startRoom.y,
-						dx // 2 + 1 + dx % 2 if wallOrient in ('e', 'w')
-						else dy // 2 + 1 + dy % 2,
+						dx // 2 + 1 + dx % 2 + shift if wallOrient in ('e', 'w')
+						else dy // 2 + 1 + dy % 2 + shift,
 						wallOrient
 					)
 					otherHall = Line(
 						startOther.x, startOther.y,
-						dx // 2 + 1 if wallOtherOrient in ('e', 'w')
-						else dy // 2 + 1,
+						dx // 2 + 1 - shift if wallOtherOrient in ('e', 'w')
+						else dy // 2 + 1 - shift,
 						wallOtherOrient
 					)
 
@@ -196,9 +203,9 @@ class Catacombs:
 				self.halls.append(otherHall)
 
 				self.hallCounts[i] += 1
-				self.hallCounts[k] += 1
-				j += 1
-				j %= len(distances)
+				self.hallCounts[j] += 1
+				k += 1
+				k %= len(distances)
 				
 	def draw(self, mode : str = '') -> np.array:
 		maskRoomEdge = np.zeros(self.size.npar, bool)
