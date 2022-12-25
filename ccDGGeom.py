@@ -406,6 +406,3 @@ class Circle(Shape):
 
 		return estimate
 
-
-
-
