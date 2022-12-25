@@ -227,10 +227,10 @@ class Rectangle(Shape):
 			return ('e', self.edgeCellsEast)
 		return ()
 
-# Numpy supporting line class
 class Line(Shape):
-	# Needs a coordinate, a length, and an orientation
+	"""Numpy supporting line class"""
 	def __init__(self, x : int, y : int, l : int, o : str):
+		"""Needs a coordinate, a length, and an orientation"""
 		o = o.lower()[0]
 		self.origin = Point(x, y)
 		self.length = abs(l)
@@ -238,21 +238,21 @@ class Line(Shape):
 			-1 if o == 'w' else 1 if o == 'e' else 0,
 			-1 if o == 'n' else 1 if o == 's' else 0
 		)
-	# Determine the center cell of the line
 	def getCentroid(self) -> Point:
+		"""Determine the center cell of the line"""
 		return self.origin + self.orient * (self.length // 2)
-	# Determine the cell at the end of the line
 	def getEndpoint(self) -> Point:
+		"""Determine the cell at the end of the line"""
 		return self.origin + self.orient * (self.length - 1)
-	# Determine the minimum graphic frame for the line
 	def getMinFrame(self) -> Point:
+		"""Determine the minimum graphic frame for the line"""
 		e = self.getEndpoint()
 		return Point(max(self.origin.x, e.x) + 1, max(self.origin.y, e.y) + 1)
-	# Determine if the line fits within an arbitrary frame
 	def isInBounds(self, frame : Point) -> bool:
+		"""Determine if the line fits within an arbitrary frame"""
 		return np.all(self.getMinFrame().npar <= frame.npar)
-	# Get a binary numpy mask array with the line drawn, arbitrary frame size
 	def getMask(self, fw : int = 0, fh : int = 0) -> np.array:
+		"""Get a binary numpy mask array with the line drawn, arbitrary frame size"""
 		pi = self.origin
 		pf = pi + self.orient * self.length
 		# the abs-abs thing is for the slice to work properly
@@ -282,20 +282,25 @@ class Line(Shape):
 		M[pi.y:pf.y, pi.x:pf.x] = 1
 		
 		return M
-	# Allow for interoperability with overlaps for rectangles and circles
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
+		"""Allow for interoperability with overlaps for rectangles and circles"""
 		return self.getMask(fw, fh)
-	# Determine the bearing to another line (or rectangle, centroid mode only!)
 	def getAzimuth(self, other, mode = 'c') -> float:
+		"""
+		Determine the bearing to another line
+		(or rectangle, centroid mode only!)
+		"""
 		if mode.lower()[0] == 'e':
 			vector = self.getEndpoint() - other.getEndpoint()
 		else:
 			vector = self.getCentroid() - other.getCentroid()
 		# See description in shape class for why this works
 		return ((np.arctan2(vector.y, vector.x) * 180. / np.pi) + 90.) % 360.
-	# Determine which cardinal direction leads closest to another line
-	# (or rectangle, centroid mode only like above!)
 	def getNearestOrientation(self, other, mode = 'c') -> tuple:
+		"""
+		Determine which cardinal direction leads closest to another line
+		(or rectangle, centroid mode only like above!)
+		"""
 		a = self.getAzimuth(other, mode)
 		if a > 315. or a <= 45.:
 			return ('s', Point(0, 1))
@@ -307,16 +312,19 @@ class Line(Shape):
 			return ('e', Point(1, 0))
 		return ()
 
-# Numpy supporting circle class
 class Circle(Shape):
-	# Needs a coordinate and radius
+	"""Numpy supporting circle class"""
 	def __init__(self, x : int, y : int, r : int):
+		"""Needs a coordinate and radius"""
 		self.origin = Point(x, y)
 		self.radius = abs(r)
 		self.edgeCells = {}
 		self.refreshEdgeCells()
-	# Use a version of the midpoint circle algorithm to compute the edge cells of the circle
 	def refreshEdgeCells(self, charliesMethod : bool = True):
+		"""
+		Use a version of the midpoint circle algorithm to compute
+		the edge cells of the circle
+		"""
 		firstQuarter = []
 		p = Point(self.radius, 0) # Start at (r, 0)
 		# Build up from 0 to pi/2 radians in quadrant 1
@@ -370,14 +378,17 @@ class Circle(Shape):
 			| {Point(*p) + self.origin for p in secondQuarter} \
 			| {Point(*p) + self.origin for p in thirdQuarter} \
 			| {Point(*p) + self.origin for p in fourthQuarter} 
-	# Determine the minimum graphic frame for the circle
 	def getMinFrame(self) -> Point:
+		"""Determine the minimum graphic frame for the circle"""
 		return self.origin + Point(self.radius + 1, self.radius + 1)
-	# Return the center cell of the cirlce
 	def getCentroid(self) -> Point:
+		"""Return the center cell of the cirlce"""
 		return self.origin
-	# Get a binary numpy mask array with the circle's edge only, to arbitrary frame size
 	def getMaskEdge(self, fw : int = 0, fh : int = 0) -> np.array:
+		"""
+		Get a binary numpy mask array with the circle's edge only,
+		to arbitrary frame size
+		"""
 		if fw == 0 or fh == 0:
 			f = self.getMinFrame()
 			fw = f.x
@@ -389,9 +400,11 @@ class Circle(Shape):
 			M[p.y, p.x] = 1
 			
 		return M
-	# Use flood fill to get a binary numpy mask array with the circle filled in,
-	# to arbitrary frame size
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
+		"""
+		Use flood fill to get a binary numpy mask array with the circle filled in,
+		to arbitrary frame size
+		"""
 		M = self.getMaskEdge(fw, fh)
 		
 		queue = [self.origin]
@@ -405,8 +418,8 @@ class Circle(Shape):
 				queue.insert(0, Point(p.x + 1, p.y))
 				
 		return M
-	# Determine the best edge cell of this circle given a bearing
 	def getAngledEdgeCell(self, azimuth : float) -> Point:
+		"""Determine the best edge cell of this circle given a bearing"""
 		# Since we -90 deg to go from trig to azimuth, we undo that to go back
 		theta = (azimuth + 90.) % 360.
 
