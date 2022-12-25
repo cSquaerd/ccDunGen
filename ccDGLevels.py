@@ -7,7 +7,8 @@ class Catacombs:
 		rct : int, raap : float,
 		varix : int, variy : int,
 		conn : int, doShift : bool,
-		padx : int = 0, pady : int = 0, thick : int = 1
+		padx : int = 0, pady : int = 0,
+		thick : int = 1, varih : int = 0
 	):
 		self.size = Point(w, h)
 		self.roomCount = rct
@@ -21,6 +22,7 @@ class Catacombs:
 		self.hallAvgCount = conn
 		self.doHallShifting = doShift
 		self.hallThickness = thick
+		self.varianceHall = varih
 		# Store the rooms and halls in these lists, must generate them separately
 		self.rooms = []
 		self.halls = []
@@ -127,7 +129,7 @@ class Catacombs:
 			distances = sorted(distances, key = lambda t : t[1])[:len(distances) - 1]
 			#print(distances)
 
-			k = 0
+			k = 0 # Main loop
 			while self.hallCounts[i] < self.hallAvgCount:
 				j = distances[k][0] # Index of next nearest other room
 				mhDist = distances[k][1]
@@ -137,23 +139,23 @@ class Catacombs:
 				wallOtherOrient, wallOtherCells = other.getNearestWall(room)
 
 				#print(i, j, k, room.getAzimuth(other), wallOrient, len(wallCells))
-
+				# Decide the doorways' locations
 				startRoom = list(wallCells)[
 					np.random.randint(0, len(wallCells))
 				]
 				startOther = list(wallOtherCells)[
 					np.random.randint(0, len(wallOtherCells))
 				]
-				
+				# Get the distance delta along both axes
 				delta = startRoom - startOther
 				dx = abs(delta.x)
 				dy = abs(delta.y)
 
 				#print(startRoom, startOther, dx, dy)
-
+				# Orientation booleans
 				goingVertical = wallOrient in ('n', 's')
 				goingVerticalOther = wallOtherOrient in ('n', 's')
-
+				# Produce an S-hall or an L-hall
 				if goingVertical and goingVerticalOther \
 					or not goingVertical and not goingVerticalOther:
 					# Randomly shift the meeting point of the hallways
@@ -166,7 +168,7 @@ class Catacombs:
 						#print(shiftRange, shift)
 					else:
 						shift = 0
-
+					# Compute the initial hallway segments
 					roomHall = Line(
 						startRoom.x, startRoom.y,
 						dx // 2 + 1 + dx % 2 + shift if not goingVertical
@@ -179,7 +181,8 @@ class Catacombs:
 						else dy // 2 + 1 - shift,
 						wallOtherOrient
 					)
-
+					# Determine the orientation of the connecting hallway segment
+					# (It comes out from the segment attached to the starting room)
 					connectingOrientation = roomHall.getNearestOrientation(
 						otherHall, mode = 'e'
 					)[0]
@@ -188,24 +191,28 @@ class Catacombs:
 						dx + 1 if goingVertical else dy + 1,
 						connectingOrientation
 					)
-
+					# The other segments will be added at the bottom of the loop
 					self.halls.append(connectingHall)
-
+					# Initialize the offset for padding the thickness of this hallway
 					offset = 1
 					offsetCorrect = -1 if (
 						goingVertical and startRoom.x < startOther.x
 						or not goingVertical and startRoom.y < startOther.y
-					) else 1
-					# Make sure our thickness lines don't intersect the wall
+					) else 1 # Make sure the staricase formation of the padded halls
+					# faces the right way;
+
+					# Make sure the padding lines don't intersect the wall
+					# (Keep doorways to 1 cell wide)
 					offsetWall = -1 if (
 						wallOrient == 'n' or wallOrient == 'w'
 					) else 1
 					offsetWallOther = -1 if (
 						wallOtherOrient == 'n' or wallOtherOrient == 'w'
 					) else 1
-
-
-					for t in range(self.hallThickness - 1):
+					# Randomly vary the amount of padding lines
+					hallNoise = np.random.randint(-self.varianceHall, self.varianceHall + 1)
+					# Generate the padding lines
+					for t in range(self.hallThickness - 1 + hallNoise):
 						offsetEnd = offset * offsetCorrect
 						#print(offset, offsetEnd, offsetCorrect)
 						
@@ -244,19 +251,19 @@ class Catacombs:
 						self.halls.append(thickConnectingHall)
 						self.halls.append(thickRoomHall)
 						self.halls.append(thickOtherHall)
-
+						# Sequence: 1, -1, 2, -2, 3, -3, ...
 						offset *= -1
 						if offset > 0:
 							offset += 1
 
 				else: # Parallel above, Perpendicular below
-					print("NON-CONNECTION HALL GENERATED!!!")
+					#print("L-TYPE HALL GENERATED!!!")
 					roomHall = Line(
 						startRoom.x, startRoom.y,
 						dx + 1 if not goingVertical else dy + 1,
 						wallOrient
 					)
-					print(roomHall.getEndpoint())
+					#print(roomHall.getEndpoint())
 					
 					otherHall = Line(
 						startOther.x, startOther.y,
@@ -282,15 +289,17 @@ class Catacombs:
 						or wallOrient == 's' and wallOtherOrient == 'e'
 						or wallOrient == 'e' and wallOtherOrient == 's'
 					) else 1
-					# Make sure our thickness lines don't intersect the wall
+					# Make sure the padding lines don't intersect the wall
 					offsetWall = -1 if (
 						wallOrient == 'n' or wallOrient == 'w'
 					) else 1
 					offsetWallOther = -1 if (
 						wallOtherOrient == 's' or wallOtherOrient == 'e'
 					) else 1
-
-					for t in range(self.hallThickness - 1):
+					# Randomly vary the amount of padding lines
+					hallNoise = np.random.randint(-self.varianceHall, self.varianceHall + 1)
+					# Generate the padding lines
+					for t in range(self.hallThickness - 1 + hallNoise):
 						offsetPos = offset * offsetCorrectPos
 						offsetLen = offset * offsetCorrectLen
 
@@ -322,19 +331,33 @@ class Catacombs:
 
 						self.halls.append(thickRoomWall)
 						self.halls.append(thickOtherWall)
-
+						# See above sequence comment
 						offset *= -1
 						if offset > 0:
 							offset += 1
 
 				self.halls.append(roomHall)
 				self.halls.append(otherHall)
-
+				# Update our bookkeeping then advance to the next closest room
+				# (or wrap around to the first closest)
 				self.hallCounts[i] += 1
 				self.hallCounts[j] += 1
 				k += 1
 				k %= len(distances)
-				
+	"""
+	Produce a 2D boolean numpy array mask of the dungeon.
+	Modes are as follows:
+
+	(Note: mode strings can be mix of capitalization:
+		ex. "doors" or "Doors" or "DOORS"
+	)
+
+	* default (""): draw the walls of rooms and hallways
+	* "hallonly"  : draw only the hallways
+	* "nowalls"   : draw the floors of rooms and hallways
+	* "doors"     : draw the floors of rooms and their doorways
+	* "dooronly"  : draw only the doorways
+	"""
 	def draw(self, mode : str = '') -> np.array:
 		maskRoomEdge = np.zeros(self.size.npar, bool)
 		for r in self.rooms:
@@ -360,6 +383,8 @@ class Catacombs:
 			) | (
 				maskRoomFill & ~ maskRoomEdge
 			)
+		elif mode.upper() == "DOORONLY":
+			return maskHall & maskRoomEdge
 			
 		return maskRoomEdge | maskHall & ~ (
 			maskRoomFill & maskHall & ~ (
