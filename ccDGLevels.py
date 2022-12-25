@@ -125,7 +125,7 @@ class Catacombs:
 			]
 			distances[i][1] = 2 * max([t[1] for t in distances]) # Eliminate own distance
 			distances = sorted(distances, key = lambda t : t[1])[:len(distances) - 1]
-			print(distances)
+			#print(distances)
 
 			k = 0
 			while self.hallCounts[i] < self.hallAvgCount:
@@ -136,7 +136,7 @@ class Catacombs:
 				wallOrient, wallCells = room.getNearestWall(other)
 				wallOtherOrient, wallOtherCells = other.getNearestWall(room)
 
-				print(i, j, k, room.getAzimuth(other), wallOrient, len(wallCells))
+				#print(i, j, k, room.getAzimuth(other), wallOrient, len(wallCells))
 
 				startRoom = list(wallCells)[
 					np.random.randint(0, len(wallCells))
@@ -149,7 +149,7 @@ class Catacombs:
 				dx = abs(delta.x)
 				dy = abs(delta.y)
 
-				print(startRoom, startOther, dx, dy)
+				#print(startRoom, startOther, dx, dy)
 
 				goingVertical = wallOrient in ('n', 's')
 				goingVerticalOther = wallOtherOrient in ('n', 's')
@@ -160,8 +160,10 @@ class Catacombs:
 					if self.doHallShifting:
 						shiftRange = self.padding.x // 2 if not goingVertical \
 						else self.padding.y // 2
+						shiftRange -= self.hallThickness // 2
+						shiftRange = max(0, shiftRange)
 						shift = np.random.randint(-shiftRange, shiftRange + 1)
-						print(shiftRange, shift)
+						#print(shiftRange, shift)
 					else:
 						shift = 0
 
@@ -194,26 +196,42 @@ class Catacombs:
 						goingVertical and startRoom.x < startOther.x
 						or not goingVertical and startRoom.y < startOther.y
 					) else 1
+					# Make sure our thickness lines don't intersect the wall
+					offsetWall = -1 if (
+						wallOrient == 'n' or wallOrient == 'w'
+					) else 1
+					offsetWallOther = -1 if (
+						wallOtherOrient == 'n' or wallOtherOrient == 'w'
+					) else 1
+
 
 					for t in range(self.hallThickness - 1):
 						offsetEnd = offset * offsetCorrect
-						print(offset, offsetEnd, offsetCorrect)
+						#print(offset, offsetEnd, offsetCorrect)
 						
 						thickRoomHall = Line(
-							startRoom.x + (offset if goingVertical else 0),
-							startRoom.y + (offset if not goingVertical else 0),
-							dx // 2 + 1 + dx % 2 + shift + offsetEnd
+							startRoom.x + (
+								offset if goingVertical else offsetWall
+							),
+							startRoom.y + (
+								offset if not goingVertical else offsetWall
+							),
+							dx // 2 + dx % 2 + shift + offsetEnd
 							if not goingVertical
-							else dy // 2 + 1 + dy % 2 + shift + offsetEnd,
+							else dy // 2 + dy % 2 + shift + offsetEnd,
 							wallOrient
 						)
 
 						thickOtherHall = Line(
-							startOther.x + (offset if goingVerticalOther else 0),
-							startOther.y + (offset if not goingVerticalOther else 0),
-							dx // 2 + 1 - shift - offsetEnd
+							startOther.x + (
+								offset if goingVerticalOther else offsetWallOther
+							),
+							startOther.y + (
+								offset if not goingVerticalOther else offsetWallOther
+							),
+							dx // 2 - shift - offsetEnd
 							if not goingVerticalOther
-							else dy // 2 + 1 - shift - offsetEnd,
+							else dy // 2 - shift - offsetEnd,
 							wallOtherOrient
 						)
 
@@ -235,15 +253,79 @@ class Catacombs:
 					print("NON-CONNECTION HALL GENERATED!!!")
 					roomHall = Line(
 						startRoom.x, startRoom.y,
-						dx + 1 if wallOrient in ('e', 'w') else dy + 1,
+						dx + 1 if not goingVertical else dy + 1,
 						wallOrient
 					)
+					print(roomHall.getEndpoint())
 					
 					otherHall = Line(
 						startOther.x, startOther.y,
-						dx + 1 if wallOtherOrient in ('e', 'w') else dy + 1,
+						dx + 1 if not goingVerticalOther else dy + 1,
 						wallOtherOrient
 					)
+
+					offset = 1
+					# Make sure when we use the offset for position that
+					# subtracting from other keeps us on the same side
+					offsetCorrectPos = -1 if (
+						wallOrient == 'n' and wallOtherOrient == 'w'
+						or wallOrient == 'w' and wallOtherOrient == 'n'
+						or wallOrient == 's' and wallOtherOrient == 'e'
+						or wallOrient == 'e' and wallOtherOrient == 's'
+					) else 1
+					# Make sure when we use the offset for length that
+					# our assumption that more positive lines are
+					# inside the turn holds mathematically
+					offsetCorrectLen = -1 if (
+						wallOrient == 'n' and wallOtherOrient == 'e'
+						or wallOrient == 'w' and wallOtherOrient == 's'
+						or wallOrient == 's' and wallOtherOrient == 'e'
+						or wallOrient == 'e' and wallOtherOrient == 's'
+					) else 1
+					# Make sure our thickness lines don't intersect the wall
+					offsetWall = -1 if (
+						wallOrient == 'n' or wallOrient == 'w'
+					) else 1
+					offsetWallOther = -1 if (
+						wallOtherOrient == 's' or wallOtherOrient == 'e'
+					) else 1
+
+					for t in range(self.hallThickness - 1):
+						offsetPos = offset * offsetCorrectPos
+						offsetLen = offset * offsetCorrectLen
+
+						thickRoomWall = Line(
+							startRoom.x + (
+								offset if goingVertical else offsetWall
+							),
+							startRoom.y + (
+								offset if not goingVertical else offsetWall
+							),
+							dx - offsetLen if not goingVertical
+							else dy - offsetLen,
+							wallOrient
+						)
+
+						thickOtherWall = Line(
+							startOther.x - (
+								offsetPos if goingVerticalOther
+								else offsetWallOther
+							),
+							startOther.y - (
+								offsetPos if not goingVerticalOther
+								else offsetWallOther
+							),
+							dx - offsetLen if not goingVerticalOther
+							else dy - offsetLen,
+							wallOtherOrient
+						)
+
+						self.halls.append(thickRoomWall)
+						self.halls.append(thickOtherWall)
+
+						offset *= -1
+						if offset > 0:
+							offset += 1
 
 				self.halls.append(roomHall)
 				self.halls.append(otherHall)
