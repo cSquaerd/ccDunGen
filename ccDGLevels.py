@@ -7,7 +7,7 @@ class Catacombs:
 		rct : int, raap : float,
 		varix : int, variy : int,
 		conn : int, doShift : bool,
-		padx : int = 0, pady : int = 0
+		padx : int = 0, pady : int = 0, thick : int = 1
 	):
 		self.size = Point(w, h)
 		self.roomCount = rct
@@ -20,11 +20,12 @@ class Catacombs:
 
 		self.hallAvgCount = conn
 		self.doHallShifting = doShift
+		self.hallThickness = thick
 		# Store the rooms and halls in these lists, must generate them separately
 		self.rooms = []
 		self.halls = []
 		self.hallCounts = []
-		
+	# String representation	
 	def __str__(self) -> str:
 		return (
 			"A {} wide by {} tall dungeon,\n" \
@@ -41,18 +42,18 @@ class Catacombs:
 			self.padding.x, self.padding.y,
 			self.variance.x, self.variance.y
 		)
-	
+	# Generic representation
 	def __repr__(self) -> str:
 		return self.__str__()
 	# Randomly generate rooms	
 	def genRooms(self, reset = False, attemptsOverride : int = 0):
 		if not reset:
 			return
-		
+		# Clear old rooms and halls
 		self.rooms = []
 		self.halls = []
 		self.hallCounts = [0 for i in range(len(self.rooms))]
-		
+		# Cap how many times rectangles are generated
 		attempts = 0
 		if attemptsOverride > 0:
 			maxAttempts = attemptsOverride
@@ -66,8 +67,8 @@ class Catacombs:
 						1. + self.roomCount * self.roomAvgAreaPercent
 					)
 				)
-			)
-		
+			) # Allows for more filled dungeons to have more attempts
+		# Try to generate valid rooms
 		while len(self.rooms) < self.roomCount:
 			attempts += 1
 			noise = np.random.randint(
@@ -77,7 +78,7 @@ class Catacombs:
 				self.roomAvgDim.npar[::-1] + noise,
 				np.zeros(2, int) + 4
 			))
-			originSpace = self.size - newSize
+			originSpace = self.size - newSize # Cannot place an origin beyond this point
 			newOrigin = Point(*np.random.randint(np.zeros(2, int), originSpace.tupl, 2))
 			newRoom = Rectangle(newOrigin.x, newOrigin.y, newSize.x, newSize.y)
 			newRoomPadZone = Rectangle(
@@ -85,21 +86,21 @@ class Catacombs:
 				max(newOrigin.y - self.padding.y, 0),
 				newSize.x + 2 * self.padding.x,
 				newSize.y + 2 * self.padding.y
-			)
-			
+			) # Use this rectangle to enforce padding
+			# Check that there are no overlaps
 			nonOverlapping = True
 			for r in self.rooms:
 				if newRoomPadZone & r:
 					nonOverlapping = False
 					break
-			
+			# Only accept non-overlapping rooms
 			if nonOverlapping:
 				self.rooms.append(newRoom)
 				print(noise, newSize, newOrigin)
 				print(newRoom)
 				print(newRoomPadZone)
 				print()
-				
+			# Log if we hit the attempt limit
 			if attempts > maxAttempts:
 				if len(self.rooms) < self.roomCount:
 					print("Warning: maximum room generation attempts reached.")
@@ -107,14 +108,13 @@ class Catacombs:
 				break
 
 		print("Attemped room generations", attempts, "times.")
-
+	# Randomly generate hallways
 	def genHalls(self, reset : bool = False):
 		if not reset:
 			return
 		# Erase old hallways	
 		self.halls = []
 		self.hallCounts = [0 for i in range(len(self.rooms))]
-		
 		# Proceed from room to room
 		for i in range(len(self.rooms)):
 			room = self.rooms[i]
@@ -151,11 +151,14 @@ class Catacombs:
 
 				print(startRoom, startOther, dx, dy)
 
-				if wallOrient in ('n', 's') and wallOtherOrient in ('n', 's') \
-					or wallOrient in ('e', 'w') and wallOtherOrient in ('e', 'w'):
+				goingVertical = wallOrient in ('n', 's')
+				goingVerticalOther = wallOtherOrient in ('n', 's')
+
+				if goingVertical and goingVerticalOther \
+					or not goingVertical and not goingVerticalOther:
 					# Randomly shift the meeting point of the hallways
 					if self.doHallShifting:
-						shiftRange = self.padding.x // 2 if wallOrient in ('e', 'w') \
+						shiftRange = self.padding.x // 2 if not goingVertical \
 						else self.padding.y // 2
 						shift = np.random.randint(-shiftRange, shiftRange + 1)
 						print(shiftRange, shift)
@@ -164,13 +167,13 @@ class Catacombs:
 
 					roomHall = Line(
 						startRoom.x, startRoom.y,
-						dx // 2 + 1 + dx % 2 + shift if wallOrient in ('e', 'w')
+						dx // 2 + 1 + dx % 2 + shift if not goingVertical
 						else dy // 2 + 1 + dy % 2 + shift,
 						wallOrient
 					)
 					otherHall = Line(
 						startOther.x, startOther.y,
-						dx // 2 + 1 - shift if wallOtherOrient in ('e', 'w')
+						dx // 2 + 1 - shift if not goingVerticalOther
 						else dy // 2 + 1 - shift,
 						wallOtherOrient
 					)
@@ -180,11 +183,54 @@ class Catacombs:
 					)[0]
 					connectingHall = Line(
 						roomHall.getEndpoint().x, roomHall.getEndpoint().y,
-						dy + 1 if wallOrient in ('e', 'w') else dx + 1,
+						dx + 1 if goingVertical else dy + 1,
 						connectingOrientation
 					)
 
 					self.halls.append(connectingHall)
+
+					offset = 1
+					offsetCorrect = -1 if (
+						goingVertical and startRoom.x < startOther.x
+						or not goingVertical and startRoom.y < startOther.y
+					) else 1
+
+					for t in range(self.hallThickness - 1):
+						offsetEnd = offset * offsetCorrect
+						print(offset, offsetEnd, offsetCorrect)
+						
+						thickRoomHall = Line(
+							startRoom.x + (offset if goingVertical else 0),
+							startRoom.y + (offset if not goingVertical else 0),
+							dx // 2 + 1 + dx % 2 + shift + offsetEnd
+							if not goingVertical
+							else dy // 2 + 1 + dy % 2 + shift + offsetEnd,
+							wallOrient
+						)
+
+						thickOtherHall = Line(
+							startOther.x + (offset if goingVerticalOther else 0),
+							startOther.y + (offset if not goingVerticalOther else 0),
+							dx // 2 + 1 - shift - offsetEnd
+							if not goingVerticalOther
+							else dy // 2 + 1 - shift - offsetEnd,
+							wallOtherOrient
+						)
+
+						thickConnectingHall = Line(
+							thickRoomHall.getEndpoint().x, thickRoomHall.getEndpoint().y,
+							dx + 1 if goingVertical else dy + 1,
+							connectingOrientation
+						)
+
+						self.halls.append(thickConnectingHall)
+						self.halls.append(thickRoomHall)
+						self.halls.append(thickOtherHall)
+
+						offset *= -1
+						if offset > 0:
+							offset += 1
+
 				else: # Parallel above, Perpendicular below
 					print("NON-CONNECTION HALL GENERATED!!!")
 					roomHall = Line(
