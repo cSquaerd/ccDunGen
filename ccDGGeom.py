@@ -238,19 +238,38 @@ class Line(Shape):
 			-1 if o == 'w' else 1 if o == 'e' else 0,
 			-1 if o == 'n' else 1 if o == 's' else 0
 		)
+
+	def __str__(self):
+		"""String representation"""
+		return "A {: 4d} cell long line starting from {} headed {}.".format(
+			self.length, self.origin, [ # Fuck you we do this cursed!
+				[' ', 'east', 'west'],
+				['south', ' ', ' '],
+				['north', ' ', ' '],
+			][self.orient.y][self.orient.x]
+		)
+
+	def __repr__(self):
+		"""Generic representation (just uses __str__)"""
+		return self.__str__()
+
 	def getCentroid(self) -> Point:
 		"""Determine the center cell of the line"""
 		return self.origin + self.orient * (self.length // 2)
+
 	def getEndpoint(self) -> Point:
 		"""Determine the cell at the end of the line"""
 		return self.origin + self.orient * (self.length - 1)
+
 	def getMinFrame(self) -> Point:
 		"""Determine the minimum graphic frame for the line"""
 		e = self.getEndpoint()
 		return Point(max(self.origin.x, e.x) + 1, max(self.origin.y, e.y) + 1)
+
 	def isInBounds(self, frame : Point) -> bool:
 		"""Determine if the line fits within an arbitrary frame"""
 		return np.all(self.getMinFrame().npar <= frame.npar)
+
 	def getMask(self, fw : int = 0, fh : int = 0) -> np.array:
 		"""Get a binary numpy mask array with the line drawn, arbitrary frame size"""
 		pi = self.origin
@@ -282,9 +301,11 @@ class Line(Shape):
 		M[pi.y:pf.y, pi.x:pf.x] = 1
 		
 		return M
+
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
 		"""Allow for interoperability with overlaps for rectangles and circles"""
 		return self.getMask(fw, fh)
+
 	def getAzimuth(self, other, mode = 'c') -> float:
 		"""
 		Determine the bearing to another line
@@ -296,6 +317,7 @@ class Line(Shape):
 			vector = self.getCentroid() - other.getCentroid()
 		# See description in shape class for why this works
 		return ((np.arctan2(vector.y, vector.x) * 180. / np.pi) + 90.) % 360.
+
 	def getNearestOrientation(self, other, mode = 'c') -> tuple:
 		"""
 		Determine which cardinal direction leads closest to another line
@@ -320,6 +342,15 @@ class Circle(Shape):
 		self.radius = abs(r)
 		self.edgeCells = {}
 		self.refreshEdgeCells()
+
+	def __str__(self):
+		"""String representation"""
+		return "A radius {: 4d} circle centered at {}.".format(self.radius, self.origin)
+
+	def __repr__(self):
+		"""Generic representation (just uses __str__)"""
+		return self.__str__()
+	
 	def refreshEdgeCells(self, charliesMethod : bool = True):
 		"""
 		Use a version of the midpoint circle algorithm to compute
@@ -377,13 +408,16 @@ class Circle(Shape):
 		self.edgeCells = {p + self.origin for p in firstQuarter} \
 			| {Point(*p) + self.origin for p in secondQuarter} \
 			| {Point(*p) + self.origin for p in thirdQuarter} \
-			| {Point(*p) + self.origin for p in fourthQuarter} 
+			| {Point(*p) + self.origin for p in fourthQuarter}
+	
 	def getMinFrame(self) -> Point:
 		"""Determine the minimum graphic frame for the circle"""
 		return self.origin + Point(self.radius + 1, self.radius + 1)
+
 	def getCentroid(self) -> Point:
 		"""Return the center cell of the cirlce"""
 		return self.origin
+
 	def getMaskEdge(self, fw : int = 0, fh : int = 0) -> np.array:
 		"""
 		Get a binary numpy mask array with the circle's edge only,
@@ -400,6 +434,7 @@ class Circle(Shape):
 			M[p.y, p.x] = 1
 			
 		return M
+
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
 		"""
 		Use flood fill to get a binary numpy mask array with the circle filled in,
@@ -418,6 +453,7 @@ class Circle(Shape):
 				queue.insert(0, Point(p.x + 1, p.y))
 				
 		return M
+
 	def getAngledEdgeCell(self, azimuth : float) -> Point:
 		"""Determine the best edge cell of this circle given a bearing"""
 		# Since we -90 deg to go from trig to azimuth, we undo that to go back
