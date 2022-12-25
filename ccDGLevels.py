@@ -1,7 +1,7 @@
 from ccDGGeom import np, Point, Rectangle, Line, Circle
 
-# Nethack style dungeon
 class Catacombs:
+	"""Nethack style dungeon"""
 	def __init__(
 		self, w : int, h : int,
 		rct : int, raap : float,
@@ -27,8 +27,9 @@ class Catacombs:
 		self.rooms = []
 		self.halls = []
 		self.hallCounts = []
-	# String representation	
+	
 	def __str__(self) -> str:
+		"""String representation"""
 		return (
 			"A {} wide by {} tall dungeon,\n" \
 			+ "with {} rooms of about {:02.0f}% average area each,\n" \
@@ -44,11 +45,13 @@ class Catacombs:
 			self.padding.x, self.padding.y,
 			self.variance.x, self.variance.y
 		)
-	# Generic representation
+	
 	def __repr__(self) -> str:
+		"""Generic representation"""
 		return self.__str__()
-	# Randomly generate rooms	
+
 	def genRooms(self, reset = False, attemptsOverride : int = 0):
+		"""Randomly generate rooms"""
 		if not reset:
 			return
 		# Clear old rooms and halls
@@ -110,8 +113,9 @@ class Catacombs:
 				break
 
 		print("Attemped room generations", attempts, "times.")
-	# Randomly generate hallways
+
 	def genHalls(self, reset : bool = False):
+		"""Randomly generate hallways"""
 		if not reset:
 			return
 		# Erase old hallways	
@@ -344,21 +348,22 @@ class Catacombs:
 				self.hallCounts[j] += 1
 				k += 1
 				k %= len(distances)
-	"""
-	Produce a 2D boolean numpy array mask of the dungeon.
-	Modes are as follows:
-
-	(Note: mode strings can be mix of capitalization:
-		ex. "doors" or "Doors" or "DOORS"
-	)
-
-	* default (""): draw the walls of rooms and hallways
-	* "hallonly"  : draw only the hallways
-	* "nowalls"   : draw the floors of rooms and hallways
-	* "doors"     : draw the floors of rooms and their doorways
-	* "dooronly"  : draw only the doorways
-	"""
+	
 	def draw(self, mode : str = '') -> np.array:
+		"""
+		Produce a 2D boolean numpy array mask of the dungeon.
+		Modes are as follows:
+
+		(Note: mode strings can be mix of capitalization:
+			ex. "doors" or "Doors" or "DOORS"
+		)
+
+		* default (""): draw the walls of rooms and hallways
+		* "hallonly"  : draw only the hallways
+		* "nowalls"   : draw the floors of rooms and hallways
+		* "doors"     : draw the floors of rooms and their doorways
+		* "dooronly"  : draw only the doorways
+		"""
 		maskRoomEdge = np.zeros(self.size.npar, bool)
 		for r in self.rooms:
 			maskRoomEdge |= r.getMaskEdge(self.size.x, self.size.y)
@@ -391,3 +396,4 @@ class Catacombs:
 				maskRoomEdge & maskHall
 			)
 		)
+
