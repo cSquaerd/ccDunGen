@@ -4,21 +4,24 @@ np.set_printoptions(
 	formatter = {"bool" : lambda b : '#' if b else '_'}
 ) # Above makes pre-imaging debugging easier to view
 
-# Numpy supporting point class
 class Point:
-	# Needs a coordinate
+	"""Numpy supporting point class"""
 	def __init__(self, x : int, y : int):
+		"""Needs a coordinate"""
 		self.x = x
 		self.y = y
 		self.dict = {'y': y, 'x': x}
 		self.npar = np.array([y, x], int)
 		self.tupl = (x, y)
-	# String representation
+	
 	def __str__(self) -> str:
+		"""String representation"""
 		return str(self.tupl)
-	# Generic representation (just uses __str__)
+
 	def __repr__(self) -> str:
+		"""Generic representation (just uses __str__)"""
 		return self.__str__()
+
 	# Arithmetic operators
 	def __add__(self, other):
 		p = self.npar + other.npar
@@ -29,38 +32,48 @@ class Point:
 	def __mul__(self, scalar : int):
 		p = self.npar * scalar
 		return Point(p[1], p[0])
-	# Manhattan a.k.a. taxicab distance
+
 	def __or__(self, other) -> int:
+		"""Manhattan a.k.a. taxicab distance"""
 		return abs(self.x - other.x) + abs(self.y - other.y)
 
-# Base shape class
 class Shape:
-	# Placeholder, subclass must implement!
+	"""Base shape class"""
 	def getCentroid(self) -> Point:
+		"""Placeholder, subclass must implement!"""
 		return Point(0, 0)
-	# Placeholder, subclass must implement!
+
 	def getMinFrame(self) -> Point:
+		"""Placeholder, subclass must implement!"""
 		return Point(0, 0)
-	# Placeholder, subclass must implement!
+
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
+		"""Placeholder, subclass must implement!"""
 		return np.zeros(1, bool)
-	# Determine if the shape fits with an arbitrary frame
+
 	def isInBounds(self, frame : Point) -> bool:
+		"""Determine if the shape fits with an arbitrary frame"""
 		return np.all(self.getMinFrame().npar <= frame.npar)
-	# Use the mask method to determine if this rectangle overlaps with another
+
 	def overlaps(self, other) -> bool:
+		"""Use the mask method to determine if this rectangle overlaps with another"""
 		smf = self.getMinFrame()
 		omf = other.getMinFrame()
 		w = max(smf.x, omf.x)
 		h = max(smf.y, omf.y)
 		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) > 0
-	# Turn the overlap method into an operator (not commutative!) (IT IS, YOU IDIOT!!)
+
 	def __and__(self, other) -> bool:
-		return self.overlaps(other)
-	# Determine the bearing towards another shape (its centroid in particular)
-	def getAzimuth(self, other) -> float:
-		vector = other.getCentroid() - self.getCentroid()
 		"""
+		Turn the overlap method into an operator (not commutative!)
+		(IT IS, YOU IDIOT!!)
+		"""
+		return self.overlaps(other)
+
+	def getAzimuth(self, other) -> float:
+		"""
+		Determine the bearing towards another shape (its centroid in particular)
+
 		To go from trig angles (
 			start at 3 o'clock, counterclockwise
 		) to azimuths (
@@ -73,30 +86,40 @@ class Shape:
 			)
 		), we need to rotate 90 degrees to the right to bring the trig 0-axis
 		to meet the place for the azimuth 0-axis.
-		Mathematcially, this is $\theta - 90$. Since we don't want negative azimuths,
-		we mod by 360 to wind negatives around.
+
+		Mathematcially, this is $\theta - 90$.
+		Since we don't want negative azimuths, we mod by 360 to wind negatives around.
 		"""
+		vector = other.getCentroid() - self.getCentroid()
 		return ((np.arctan2(vector.y, vector.x) * 180. / np.pi) - 90.) % 360.
 
-# Numpy supporting rectangle class
 class Rectangle(Shape):
-	# Needs a coordinate for the northwest corner (nearest to origin), a width, and height
+	"""Numpy supporting rectangle class"""
 	def __init__(self, x : int, y : int, w : int, h : int):
+		"""
+		Needs a coordinate for the northwest corner (nearest to origin),
+		a width, and height
+		"""
 		self.origin = Point(x, y)
 		self.height = abs(h)
 		self.width = abs(w)
 		self.area = self.height * self.width
 		self.refreshEdgeCells()
-	# String representation
+	
 	def __str__(self) -> str:
+		"""String representation"""
 		return "A {: 4d} by {: 4d} Rectangle cornered at ({: 4d}, {: 4d}).".format(
 			self.width, self.height, self.origin.x, self.origin.y
 		)
-	# Generic representation (just uses __str__)
+
 	def __repr__(self) -> str:
+		"""Generic representation (just uses __str__)"""
 		return self.__str__()
-	# Make six sets detailing the coordinates of cells in the rectangle on the edge of it
+
 	def refreshEdgeCells(self):
+		"""
+		Make six sets detailing the coordinates of cells on the edge of the rectangle
+		"""
 		yi = self.origin.y
 		xi = self.origin.x
 
@@ -141,14 +164,20 @@ class Rectangle(Shape):
 		
 		self.edgeCells = self.corners | self.edgeCellsNorth | self.edgeCellsWest \
 			| self.edgeCellsSouth | self.edgeCellsEast
-	# Determine the center cell of the rectangle
+	
 	def getCentroid(self) -> Point:
+		"""Determine the center cell of the rectangle"""
 		return self.origin + Point(self.width // 2, self.height // 2)
-	# Determine the minimum graphic frame for the rectangle
+
 	def getMinFrame(self) -> Point:
+		"""Determine the minimum graphic frame for the rectangle"""
 		return self.origin + Point(self.width, self.height)
-	# Get a binary numpy mask array with the rectangle filled in, to arbitrary frame size
+
 	def getMaskFill(self, fw : int = 0, fh : int = 0) -> np.array:
+		"""
+		Get a binary numpy mask array with the rectangle filled in,
+		to arbitrary frame size
+		"""
 		if fw == 0 or fh == 0:
 			f = self.getMinFrame()
 			fw = f.x
@@ -162,8 +191,12 @@ class Rectangle(Shape):
 		] = 1
 		
 		return M
-	# Get a binary numpy mask array with the rectangle's edge only, to arbitrary frame size
+
 	def getMaskEdge(self, fw : int = 0, fh : int = 0) -> np.array:
+		"""
+		Get a binary numpy mask array with the rectangle's edge only,
+		to arbitrary frame size
+		"""
 		M = self.getMaskFill(fw, fh)
 		
 		M[
@@ -172,15 +205,17 @@ class Rectangle(Shape):
 		] = 0
 		
 		return M
-	# Compute the percentage of how much of this rectangle overlaps with another
+
 	def percentOverlap(self, other) -> float:
+		"""Compute the percentage of how much of this rectangle overlaps with another"""
 		smf = self.getMinFrame()
 		omf = other.getMinFrame()
 		w = max(smf.x, omf.x)
 		h = max(smf.y, omf.y)
 		return np.count_nonzero(self.getMaskFill(w, h) & other.getMaskFill(w, h)) / self.area
-	# Determine the closest wall that faces another rectangle
+
 	def getNearestWall(self, other) -> tuple:
+		"""Determine the closest wall that faces another rectangle"""
 		a = self.getAzimuth(other)
 		if a > self.azi315 or a <= self.azi45:
 			return ('s', self.edgeCellsSouth)
