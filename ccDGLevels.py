@@ -427,7 +427,8 @@ class Caves:
 		self.varianceHall = varih
 
 		self.rooms = []
-		self.roomPolarities = []
+		self.carves = []
+		self.carvePolarities = []
 		self.halls = []
 		self.hallCounts = []
 
@@ -457,7 +458,41 @@ class Caves:
 
 	def genCarves(self, reset : bool):
 		"""Randomly carve rooms"""
-		pass
+		if not reset:
+			return
+
+		self.carves = []
+		self.carvePolarities = []
+
+		for r in self.rooms:
+			carveGroup = []
+			polarityGroup = []
+			for c in range(self.carveCount):
+				carveOrigin = r.getAngledEdgeCell(
+					np.random.uniform() * 360.
+				)
+				carveRadius = self.carveSize + np.random.randint(
+					-self.carveNoise, self.carveNoise + 1
+				)
+				if np.any(
+					(
+						carveOrigin.npar - np.array((carveRadius, carveRadius))
+					) < np.zeros(2, int)
+				) or np.any(
+					(
+						carveOrigin.npar + np.array((carveRadius, carveRadius))
+					) >= self.size.npar
+				):
+					continue
+
+				carvePolarity = np.random.uniform() < self.carveChance
+
+				carveGroup.append(Circle(carveOrigin.x, carveOrigin.y, carveRadius))
+				polarityGroup.append(carvePolarity)
+
+			self.carves.append(carveGroup)
+			self.carvePolarities.append(polarityGroup)
+		
 
 	def genRooms(self, reset : bool, attemptsOverride : int = 0):
 		"""Randomly generate rooms"""
@@ -465,7 +500,8 @@ class Caves:
 			return
 		# Clear old rooms and halls
 		self.rooms = []
-		self.roomPolarities = []
+		self.carves = []
+		self.carvePolarities = []
 		self.halls = []
 		self.hallCounts = [0 for i in range(len(self.rooms))]
 		# Cap how many times rectangles are generated
@@ -526,5 +562,20 @@ class Caves:
 		for r in self.rooms:
 			maskRoomEdge |= r.getMaskEdge(self.size.x, self.size.y)
 
-		return maskRoomEdge
+		maskRoomCarvePos = np.zeros(self.size.npar, bool)
+		maskRoomCarveNeg = np.zeros(self.size.npar, bool)
+		for i in range(len(self.carves)):
+			carveGroup = self.carves[i]
+			polarityGroup = self.carvePolarities[i]
+			for j in range(len(carveGroup)):
+				if polarityGroup[j]:
+					maskRoomCarvePos |= carveGroup[j].getMaskFill(
+						self.size.x, self.size.y
+					)
+				else:
+					maskRoomCarveNeg |= carveGroup[j].getMaskEdge(
+						self.size.x, self.size.y
+					)
+
+		return maskRoomEdge | maskRoomCarvePos | maskRoomCarveNeg
 	
