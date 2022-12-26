@@ -50,7 +50,7 @@ class Catacombs:
 		"""Generic representation"""
 		return self.__str__()
 
-	def genRooms(self, reset = False, attemptsOverride : int = 0):
+	def genRooms(self, reset : bool, attemptsOverride : int = 0):
 		"""Randomly generate rooms"""
 		if not reset:
 			return
@@ -114,7 +114,7 @@ class Catacombs:
 
 		print("Attemped room generations", attempts, "times.")
 
-	def genHalls(self, reset : bool = False):
+	def genHalls(self, reset : bool):
 		"""Randomly generate hallways"""
 		if not reset:
 			return
@@ -455,11 +455,76 @@ class Caves:
 		"""Generic representation"""
 		return self.__str__()
 
-	def genCarves(self):
+	def genCarves(self, reset : bool):
 		"""Randomly carve rooms"""
 		pass
 
-	def genRooms(self):
+	def genRooms(self, reset : bool, attemptsOverride : int = 0):
 		"""Randomly generate rooms"""
-		pass
+		if not reset:
+			return
+		# Clear old rooms and halls
+		self.rooms = []
+		self.roomPolarities = []
+		self.halls = []
+		self.hallCounts = [0 for i in range(len(self.rooms))]
+		# Cap how many times rectangles are generated
+		attempts = 0
+		if attemptsOverride > 0:
+			maxAttempts = attemptsOverride
+		else: # $$ n_{rooms} \times \max(pad, 1)
+			maxAttempts = int( # \times 10^{-\ln(1 - n_{rooms} \times a_{avg})}
+				round( # \times e^{1 + n_{rooms} \times a_{avg}} $$
+					self.roomCount * max(self.padding, 1) \
+					* 10. ** (
+						-np.log(1. - self.roomCount * self.roomAvgAreaPercent)
+					) * np.e ** (
+						1. + self.roomCount * self.roomAvgAreaPercent
+					)
+				)
+			) # Allows for more filled dungeons to have more attempts
+		# Try to generate valid rooms
+		while len(self.rooms) < self.roomCount:
+			attempts += 1
+			noise = np.random.randint(-self.variance, self.variance + 1)
+			newRadius = self.roomAvgRad + noise
 
+			originSpace = Point(self.size.x - newRadius, self.size.y - newRadius)
+			newOrigin = Point(
+				*np.random.randint((newRadius, newRadius), originSpace.tupl, 2)
+			)
+
+			newRoom = Circle(newOrigin.x, newOrigin.y, newRadius)
+			newRoomPadZone = Circle(
+				newOrigin.x, newOrigin.y,
+				newRadius + self.padding
+			)
+
+			nonOverlapping = True
+			for r in self.rooms:
+				if newRoomPadZone & r:
+					nonOverlapping = False
+					break
+
+			if nonOverlapping:
+				self.rooms.append(newRoom)
+				print(noise, newRadius, newOrigin)
+				print(newRoom)
+				print()
+
+			if attempts > maxAttempts:
+				if len(self.rooms) < self.roomCount:
+					print("Warning: maximum room generation attempts reached.")
+					print("Your dungeon will only have", len(self.rooms), "rooms")
+					break
+
+		print("Attemped room generation", attempts, "times.")
+
+	def draw(self, mode : str = ""):
+		"""Foo"""
+		maskRoomEdge = np.zeros(self.size.npar, bool)
+		for r in self.rooms:
+			maskRoomEdge |= r.getMaskEdge(self.size.x, self.size.y)
+
+		return maskRoomEdge
+	
