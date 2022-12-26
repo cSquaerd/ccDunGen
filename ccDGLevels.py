@@ -397,3 +397,69 @@ class Catacombs:
 			)
 		)
 
+class Caves:
+	"""Circle-based caves and tunnels"""
+	def __init__(
+		self, w : int, h : int,
+		rct : int, raap : float,
+		carvep : float, carven : int,
+		carveq : int, carver : int,
+		vari : int, conn : int,
+		pad : int = 0, thick : int = 1, varih : int = 0
+	):
+		self.size = Point(w, h)
+		self.roomCount = rct
+		self.roomAvgAreaPercent = raap
+
+		self.carveChance = carvep
+		self.carveCount = carven
+		self.carveQuotient = carveq
+		self.carveNoise = carver
+		
+		self.variance = vari
+		self.padding = pad
+
+		self.roomAvgRad = np.sqrt(w * h * raap / np.pi).round().astype(int)
+		self.carveSize = max(1, int(round(self.roomAvgRad / self.carveQuotient)))
+
+		self.hallAvgCount = conn
+		self.hallThickness = thick
+		self.varianceHall = varih
+
+		self.rooms = []
+		self.roomPolarities = []
+		self.halls = []
+		self.hallCounts = []
+
+	def __str__(self) -> str:
+		"""String representation"""
+		return (
+			"A {} wide by {} tall cave network,\n" \
+			+ "with {} chambers of about {:02.0f}% average area each,\n" \
+			+ "or of average radius {}, with an average of {} tunnels\n" \
+			+ "out of each chamber; Each chamber is carved {} times\n" \
+			+ "with a {:02.0f}% chance of filling in,\n" \
+			+ "with circles of average radius {} +/- {};\n" \
+			+ "Rooms are padded by at least {} radial cells,\n"
+			+ "and have a radius variance of +/- {}."
+		).format(
+			self.size.x, self.size.y,
+			self.roomCount, self.roomAvgAreaPercent * 100.,
+			self.roomAvgRad, self.hallAvgCount,
+			self.carveCount, self.carveChance * 100.,
+			self.carveSize, self.carveNoise,
+			self.padding, self.variance
+		)
+	
+	def __repr__(self) -> str:
+		"""Generic representation"""
+		return self.__str__()
+
+	def genCarves(self):
+		"""Randomly carve rooms"""
+		pass
+
+	def genRooms(self):
+		"""Randomly generate rooms"""
+		pass
+
