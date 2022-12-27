@@ -456,43 +456,89 @@ class Caves:
 		"""Generic representation"""
 		return self.__str__()
 
-	def genCarves(self, reset : bool):
+	def genCarves(self, reset : bool, attemptsOverride : int = 0):
 		"""Randomly carve rooms"""
 		if not reset:
 			return
 
 		self.carves = []
 		self.carvePolarities = []
+		
+		# Cap how many times circles are generated
+		if attemptsOverride > 0:
+			maxAttempts = attemptsOverride
+		else:
+			carveRatio = (
+				(2. * self.carveSize) # Diameter of Carve
+				/ (2. * np.pi * self.roomAvgRad) # Circumference of Room
+			)			
+			
+			maxAttempts = int(
+				round(
+					self.carveCount
+					* 10. ** (-np.log(0.5 - carveRatio))
+					* np.e ** (1. + carveRatio)
+				)
+			) # Allows for larger carves to have more chances
+			print("Carve Ratio:", carveRatio)
 
 		for r in self.rooms:
 			carveGroup = []
 			polarityGroup = []
+			carveMasks = []
+			attempts = 0
 			for c in range(self.carveCount):
-				carveOrigin = r.getAngledEdgeCell(
-					np.random.uniform() * 360.
-				)
-				carveRadius = self.carveSize + np.random.randint(
-					-self.carveNoise, self.carveNoise + 1
-				)
-				if np.any(
-					(
-						carveOrigin.npar - np.array((carveRadius, carveRadius))
-					) < np.zeros(2, int)
-				) or np.any(
-					(
-						carveOrigin.npar + np.array((carveRadius, carveRadius))
-					) >= self.size.npar
-				):
-					continue
+				while True: # Try to find a good origin and radius for the new carve
+					if attempts >= maxAttempts:
+						break
 
-				carvePolarity = np.random.uniform() < self.carveChance
+					carveOrigin = r.getAngledEdgeCell(
+						np.random.uniform() * 360.
+					)
+					carveRadius = self.carveSize + np.random.randint(
+						-self.carveNoise, self.carveNoise + 1
+					)
 
-				carveGroup.append(Circle(carveOrigin.x, carveOrigin.y, carveRadius))
-				polarityGroup.append(carvePolarity)
+					if np.any( # Check that the carve will be in the frame
+						(
+							carveOrigin.npar - np.array((carveRadius, carveRadius))
+						) < np.zeros(2, int)
+					) or np.any(
+						(
+							carveOrigin.npar + np.array((carveRadius, carveRadius))
+						) >= self.size.npar
+					):
+						attempts += 1
+						continue
+
+					newCarve = Circle(carveOrigin.x, carveOrigin.y, carveRadius)
+					newCarveMask = newCarve.getMaskFill(self.size.x, self.size.y)
+					overlapping = False
+
+					for m in carveMasks: # Check that the carve doesn't instersect
+						if np.any(newCarveMask & m): # any other carves
+							overlapping = True
+							break
+
+					attempts += 1
+
+					if overlapping:
+						continue
+					else:
+						break
+				
+				if attempts < maxAttempts:
+					carvePolarity = np.random.uniform() < self.carveChance
+
+					carveGroup.append(newCarve)
+					polarityGroup.append(carvePolarity)
+					carveMasks.append(newCarveMask)
+				else:
+					break
 
 			self.carves.append(carveGroup)
 			self.carvePolarities.append(polarityGroup)
-		
+			print("Generated", len(carveGroup), "carves with", attempts, "attempts for room", r)
 
 	def genRooms(self, reset : bool, attemptsOverride : int = 0):
 		"""Randomly generate rooms"""
@@ -504,14 +550,16 @@ class Caves:
 		self.carvePolarities = []
 		self.halls = []
 		self.hallCounts = [0 for i in range(len(self.rooms))]
-		# Cap how many times rectangles are generated
+
+		roomMasks = []
+		# Cap how many times circles are generated
 		attempts = 0
 		if attemptsOverride > 0:
 			maxAttempts = attemptsOverride
 		else: # $$ n_{rooms} \times \max(pad, 1)
 			maxAttempts = int( # \times 10^{-\ln(1 - n_{rooms} \times a_{avg})}
 				round( # \times e^{1 + n_{rooms} \times a_{avg}} $$
-					self.roomCount * max(self.padding, 1) \
+					self.roomCount * max(self.padding, 1)
 					* 10. ** (
 						-np.log(1. - self.roomCount * self.roomAvgAreaPercent)
 					) * np.e ** (
@@ -534,16 +582,22 @@ class Caves:
 			newRoomPadZone = Circle(
 				newOrigin.x, newOrigin.y,
 				newRadius + self.padding
-			)
+			).getMaskFill(self.size.x + self.padding, self.size.y + self.padding)
 
 			nonOverlapping = True
-			for r in self.rooms:
-				if newRoomPadZone & r:
+			for m in roomMasks:
+				if np.any(newRoomPadZone & m):
 					nonOverlapping = False
 					break
 
 			if nonOverlapping:
 				self.rooms.append(newRoom)
+				roomMasks.append(
+					newRoom.getMaskFill(
+						self.size.x + self.padding, self.size.y + self.padding
+					)
+				)
+
 				print(noise, newRadius, newOrigin)
 				print(newRoom)
 				print()
@@ -558,24 +612,49 @@ class Caves:
 
 	def draw(self, mode : str = ""):
 		"""Foo"""
-		maskRoomEdge = np.zeros(self.size.npar, bool)
-		for r in self.rooms:
-			maskRoomEdge |= r.getMaskEdge(self.size.x, self.size.y)
-
+		maskRoom = np.zeros(self.size.npar, bool)
 		maskRoomCarvePos = np.zeros(self.size.npar, bool)
 		maskRoomCarveNeg = np.zeros(self.size.npar, bool)
+		maskRoomEdgePos = np.zeros(self.size.npar, bool)
+		maskRoomEdgeNeg = np.zeros(self.size.npar, bool)
+		maskRoomFloorPos = np.zeros(self.size.npar, bool)
+		maskRoomFloorNeg = np.zeros(self.size.npar, bool)
+
+		for r in self.rooms:
+			edgeMask = r.getMaskEdge(self.size.x, self.size.y)
+			fillMask = r.getMaskFill(self.size.x, self.size.y)
+
+			maskRoom |= fillMask
+			maskRoomEdgePos |= edgeMask
+			maskRoomFloorPos |= fillMask & ~edgeMask
+
 		for i in range(len(self.carves)):
 			carveGroup = self.carves[i]
 			polarityGroup = self.carvePolarities[i]
 			for j in range(len(carveGroup)):
-				if polarityGroup[j]:
-					maskRoomCarvePos |= carveGroup[j].getMaskFill(
-						self.size.x, self.size.y
-					)
-				else:
-					maskRoomCarveNeg |= carveGroup[j].getMaskEdge(
-						self.size.x, self.size.y
-					)
+				edgeMask = carveGroup[j].getMaskEdge(self.size.x, self.size.y)
+				fillMask = carveGroup[j].getMaskFill(self.size.x, self.size.y)
 
-		return maskRoomEdge | maskRoomCarvePos | maskRoomCarveNeg
-	
+				if polarityGroup[j]:
+					maskRoomCarvePos |= fillMask
+					maskRoomEdgePos |= edgeMask
+					maskRoomFloorPos |= fillMask & ~edgeMask
+				else:
+					maskRoomCarveNeg |= fillMask
+					maskRoomEdgeNeg |= edgeMask
+					maskRoomFloorNeg |= fillMask & ~edgeMask
+
+		if mode.upper() == "NOWALLS":
+			return maskRoomFloorPos & ~maskRoomCarveNeg
+		elif mode.upper() == "BIG":
+			return maskRoom | maskRoomCarvePos
+
+		return (
+			(
+				(maskRoomEdgePos & ~maskRoomFloorPos)
+				& ~maskRoomCarveNeg
+			) | (
+				maskRoomEdgeNeg & maskRoom
+			)
+		)
+
