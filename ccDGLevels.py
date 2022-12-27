@@ -405,7 +405,8 @@ class Caves:
 		carvep : float, carven : int,
 		carveq : int, carver : int,
 		vari : int, conn : int,
-		pad : int = 0, thick : int = 1, varih : int = 0
+		pad : int = 0, thick : int = 1,
+		varihr : int = 0, variha : float = 0.
 	):
 		self.size = Point(w, h)
 		self.roomCount = rct
@@ -423,8 +424,9 @@ class Caves:
 		self.carveSize = max(1, int(round(self.roomAvgRad / self.carveQuotient)))
 
 		self.hallAvgCount = conn
-		self.hallThickness = thick
-		self.varianceHall = varih
+		self.hallRadius = thick
+		self.varianceHallRadius = varihr
+		self.varianceHallAngle = variha
 
 		self.rooms = []
 		self.carves = []
@@ -523,7 +525,7 @@ class Caves:
 					attempts += 1
 
 					if overlapping:
-						continue
+						continue # Enforce no carves overlap each other
 					else:
 						break
 				
@@ -609,9 +611,107 @@ class Caves:
 					break
 
 		print("Attemped room generation", attempts, "times.")
+		#print("Now carving out each room...")
+		#self.genCarves(True)
+
+	def genHalls(self, reset : bool):
+		"""Randomly generate hallways"""
+		if not reset:
+			return
+		# Erase old hallways	
+		self.halls = []
+		self.hallCounts = [0 for i in range(len(self.rooms))]
+		# Proceed from room to room
+		for i in range(len(self.rooms)):
+			room = self.rooms[i]
+			# Get taxicab distances from current room centroid to every other rooms centroid
+			distances = [
+				[j, room.getCentroid() | self.rooms[j].getCentroid()]
+				for j in range(len(self.rooms))
+			]
+			distances[i][1] = 2 * max([t[1] for t in distances]) # Eliminate own distance
+			distances = sorted(distances, key = lambda t : t[1])[:len(distances) - 1]
+
+			# Produce a collision mask of the current room
+			maskRoom = room.getMaskFill(*self.size.tupl)
+			maskRoomCarvePos = np.zeros(self.size.npar, bool)
+			maskRoomFloorNeg = np.zeros(self.size.npar, bool)
+
+			for j in range(len(self.carves[i])):
+				if self.carvePolarities[i][j]:
+					maskRoomCarvePos |= self.carves[i][j].getMaskFill(*self.size.tupl)
+				else:
+					maskRoomFloorNeg |= (
+						self.carves[i][j].getMaskFill(*self.size.tupl)
+						& ~self.carves[i][j].getMaskEdge(*self.size.tupl)
+					)
+
+			maskRoom |= maskRoomCarvePos
+			maskRoom &= ~maskRoomFloorNeg
+
+			print("Digging tunnels to room", room)
+
+			k = 0 # Main loop
+			while self.hallCounts[i] < self.hallAvgCount:
+				j = distances[k][0] # Index of next nearest other room
+				mhDist = distances[k][1]
+				other = self.rooms[j]
+				# Decide the doorways' location
+				heading = other.getAzimuth(room)
+				next = other.getAngledEdgeCell(heading)
+
+				while True: # Add on enough tunnel cells
+					firstRadius = True
+
+					while firstRadius or np.any( # Check that the tunnel 
+						( # will be in the frame
+							next.npar - np.array((nextRadius, nextRadius))
+						) < np.zeros(2, int)
+					) or np.any(
+						(
+							next.npar + np.array((nextRadius, nextRadius))
+						) >= self.size.npar
+					):
+						nextRadius = self.hallRadius + np.random.randint(
+							-self.varianceHallRadius, self.varianceHallRadius + 1
+						) # Recompute the radius
+						firstRadius = False
+
+					nextTunnel = Circle(next.x, next.y, nextRadius)
+					self.halls.append(nextTunnel)
+
+					if np.any(
+						nextTunnel.getMaskFill(*self.size.tupl) & maskRoom
+					): # Stop digging if we have hit the target room
+						break
+					else:
+						next = nextTunnel.getAngledEdgeCell(
+							nextTunnel.getAzimuth(room) + np.random.uniform(
+								-self.varianceHallAngle, self.varianceHallAngle
+							)
+						)
+
+				print("Generated a hall from", other)
+
+				self.hallCounts[i] += 1
+				self.hallCounts[j] += 1
+				k += 1
+				k %= len(distances)
 
 	def draw(self, mode : str = ""):
-		"""Foo"""
+		"""
+		Produce a 2D boolean numpy array mask of the dungeon.
+		Modes are as follows:
+
+		(Note: mode strings can be mix of capitalization:
+			ex. "doors" or "Doors" or "DOORS"
+		)
+
+		* default (""): draw the walls of rooms and hallways
+		* "hallonly"  : draw only the walls of hallways
+		* "nowalls"   : draw the floors of rooms and hallways
+		* "nonsolid   : draw all wall and floor cells of rooms and hallways
+		"""
 		maskRoom = np.zeros(self.size.npar, bool)
 		maskRoomCarvePos = np.zeros(self.size.npar, bool)
 		maskRoomCarveNeg = np.zeros(self.size.npar, bool)
@@ -620,20 +720,25 @@ class Caves:
 		maskRoomFloorPos = np.zeros(self.size.npar, bool)
 		maskRoomFloorNeg = np.zeros(self.size.npar, bool)
 
+		maskHall = np.zeros(self.size.npar, bool)
+		maskHallEdge = np.zeros(self.size.npar, bool)
+		maskHallFloor = np.zeros(self.size.npar, bool)
+		# Combine all the edge and fill masks of the rooms
 		for r in self.rooms:
-			edgeMask = r.getMaskEdge(self.size.x, self.size.y)
-			fillMask = r.getMaskFill(self.size.x, self.size.y)
+			edgeMask = r.getMaskEdge(*self.size.tupl)
+			fillMask = r.getMaskFill(*self.size.tupl)
 
 			maskRoom |= fillMask
 			maskRoomEdgePos |= edgeMask
-			maskRoomFloorPos |= fillMask & ~edgeMask
-
+			maskRoomFloorPos |= fillMask & ~edgeMask # Floor is Fill - Edge
+			# And Boolean - is A & ~B
+		# Combine all the edge and fill masks of the carves, keeping polarity
 		for i in range(len(self.carves)):
 			carveGroup = self.carves[i]
 			polarityGroup = self.carvePolarities[i]
 			for j in range(len(carveGroup)):
-				edgeMask = carveGroup[j].getMaskEdge(self.size.x, self.size.y)
-				fillMask = carveGroup[j].getMaskFill(self.size.x, self.size.y)
+				edgeMask = carveGroup[j].getMaskEdge(*self.size.tupl)
+				fillMask = carveGroup[j].getMaskFill(*self.size.tupl)
 
 				if polarityGroup[j]:
 					maskRoomCarvePos |= fillMask
@@ -643,18 +748,34 @@ class Caves:
 					maskRoomCarveNeg |= fillMask
 					maskRoomEdgeNeg |= edgeMask
 					maskRoomFloorNeg |= fillMask & ~edgeMask
+		# Combine all the edge and fill masks of the tunnels
+		for h in self.halls:
+			edgeMask = h.getMaskEdge(*self.size.tupl)
+			fillMask = h.getMaskFill(*self.size.tupl)
 
-		if mode.upper() == "NOWALLS":
-			return maskRoomFloorPos & ~maskRoomCarveNeg
-		elif mode.upper() == "BIG":
-			return maskRoom | maskRoomCarvePos
+			maskHall |= fillMask
+			maskHallEdge |= edgeMask
+			maskHallFloor |= fillMask & ~edgeMask
+
+		if mode.upper() == "NOWALLS": # Remove all negative carve space from floors,
+			# then tack on the hall floors
+			return (maskRoomFloorPos & ~maskRoomCarveNeg) | maskHallFloor
+		elif mode.upper() == "NONSOLID": # Combine all fill masks with polarity
+			return ((maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg) | maskHall
+		elif mode.upper() == "HALLONLY": # This removes overlapping internal edges
+			return maskHallEdge & ~maskHallFloor
 
 		return (
 			(
-				(maskRoomEdgePos & ~maskRoomFloorPos)
-				& ~maskRoomCarveNeg
-			) | (
-				maskRoomEdgeNeg & maskRoom
-			)
+				( # Remove and edge cells that are carved floors
+					(maskRoomEdgePos & ~maskRoomFloorPos)
+					& ~maskRoomCarveNeg # Remove negative carve space
+				) | ( # Combine with negative edges that are inside each room
+					maskRoomEdgeNeg & maskRoom
+				) # Cut out edges where tunnels will connect
+			) & ~maskHallFloor
+		) | ( # Remove overlapping internal hall edges
+			(maskHallEdge & ~maskHallFloor) # And remove edges inside rooms
+			& ~((maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg)
 		)
 
