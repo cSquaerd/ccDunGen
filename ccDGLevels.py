@@ -363,6 +363,14 @@ class Catacombs:
 		* "nowalls"   : draw the floors of rooms and hallways
 		* "doors"     : draw the floors of rooms and their doorways
 		* "dooronly"  : draw only the doorways
+		* "image"     : draw all layers needed for imaging (returns a 3D array)
+
+		The layer order for image mode is as follows:
+		0. Floor, Rooms
+		1. Floor, Hallways
+		2. Walls
+		3. Doors
+		4. Everything
 		"""
 		maskRoomEdge = np.zeros(self.size.npar, bool)
 		for r in self.rooms:
@@ -390,13 +398,25 @@ class Catacombs:
 			)
 		elif mode.upper() == "DOORONLY":
 			return maskHall & maskRoomEdge
+		elif mode.upper() == "IMAGE":
+			return np.stack([
+				maskRoomFill & ~maskRoomEdge,
+				maskHall,
+				maskRoomEdge
+				maskRoomEdge & maskHall,
+				maskRoomFill | maskHall
+			])
 			
 		return maskRoomEdge | maskHall & ~ (
 			maskRoomFill & maskHall & ~ (
 				maskRoomEdge & maskHall
 			)
 		)
-
+	def getImageData(self) -> dict:
+		"""Separate image layer masks out into values in a dictionary""'
+		Layers = self.draw("IMAGE")
+		return {"" : ""}
+		
 class Caves:
 	"""Circle-based caves and tunnels"""
 	def __init__(
