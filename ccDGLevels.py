@@ -402,7 +402,7 @@ class Catacombs:
 			return np.stack([
 				maskRoomFill & ~maskRoomEdge,
 				maskHall,
-				maskRoomEdge
+				maskRoomEdge,
 				maskRoomEdge & maskHall,
 				maskRoomFill | maskHall
 			])
@@ -413,9 +413,15 @@ class Catacombs:
 			)
 		)
 	def getImageData(self) -> dict:
-		"""Separate image layer masks out into values in a dictionary""'
-		Layers = self.draw("IMAGE")
-		return {"" : ""}
+		"""Separate image layer masks out into values in a dictionary"""
+		layers = self.draw("IMAGE")
+		return {
+			"floorRooms" : layers[0],
+			"floorHalls" : layers[1],
+			"walls" : layers[2],
+			"doors" : layers[3],
+			"all" : layers[4]
+		}
 		
 class Caves:
 	"""Circle-based caves and tunnels"""
@@ -784,6 +790,15 @@ class Caves:
 			return ((maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg) | maskHall
 		elif mode.upper() == "HALLONLY": # This removes overlapping internal edges
 			return maskHallEdge & ~maskHallFloor
+		elif mode.upper() == "IMAGE":
+			return (
+				maskRoom,
+				maskRoomCarvePos, maskRoomCarveNeg,
+				maskRoomEdgePos, maskRoomEdgeNeg,
+				maskRoomFloorPos, maskRoomFloorNeg,
+				maskHall, maskHallEdge, maskHallFloor
+			)
+
 
 		return (
 			(
