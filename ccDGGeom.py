@@ -30,6 +30,8 @@ class Point:
 		p = self.npar - other.npar
 		return Point(p[1], p[0])
 	def __mul__(self, scalar : int):
+		# Note: happens to work with numpy arrays of the same shape
+		# because type "hints" aren't strictly enforced
 		p = self.npar * scalar
 		return Point(p[1], p[0])
 

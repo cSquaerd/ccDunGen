@@ -420,7 +420,8 @@ class Catacombs:
 			"floorHalls" : layers[1],
 			"walls" : layers[2],
 			"doors" : layers[3],
-			"all" : layers[4]
+			"all" : layers[4],
+			"dungeonType": "catacombs"
 		}
 		
 class Caves:
@@ -792,6 +793,27 @@ class Caves:
 			return maskHallEdge & ~maskHallFloor
 		elif mode.upper() == "IMAGE":
 			return (
+				maskHallFloor,
+				maskRoomFloorPos,
+				maskRoomFloorPos & maskRoomCarvePos & ~maskRoom,
+				( # Part 2 of standard draw
+					maskHallEdge & ~maskHallFloor
+				) & ~(
+					(maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg
+				),
+				( # Part 1 of standard draw
+					(
+						(maskRoomEdgePos & ~maskRoomFloorPos) & ~maskRoomCarveNeg
+					) | (
+						maskRoomEdgeNeg & maskRoom
+					) & ~maskHallFloor
+				),
+				(
+					(maskRoom | maskRoomCarvePos) & ~ maskRoomFloorNeg
+				) | maskHall
+			)
+		elif mode.upper() == "LAYERS":
+			return (
 				maskRoom,
 				maskRoomCarvePos, maskRoomCarveNeg,
 				maskRoomEdgePos, maskRoomEdgeNeg,
@@ -799,18 +821,33 @@ class Caves:
 				maskHall, maskHallEdge, maskHallFloor
 			)
 
-
 		return (
 			(
 				( # Remove and edge cells that are carved floors
-					(maskRoomEdgePos & ~maskRoomFloorPos)
-					& ~maskRoomCarveNeg # Remove negative carve space
+					(maskRoomEdgePos & ~maskRoomFloorPos) & ~maskRoomCarveNeg
+					# Remove negative carve space
 				) | ( # Combine with negative edges that are inside each room
 					maskRoomEdgeNeg & maskRoom
 				) # Cut out edges where tunnels will connect
 			) & ~maskHallFloor
 		) | ( # Remove overlapping internal hall edges
-			(maskHallEdge & ~maskHallFloor) # And remove edges inside rooms
-			& ~((maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg)
+			(
+				maskHallEdge & ~maskHallFloor # And remove edges inside rooms
+			) & ~(
+				(maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg
+			)
 		)
+
+	def getImageData(self) -> dict:
+		"""Separate image layer masks out into values in a dictionary"""
+		layers = self.draw("IMAGE")
+		return {
+			"floorHalls": layers[0],
+			"floorRooms": layers[1],
+			"floorCarves": layers[2],
+			"wallHalls": layers[3],
+			"wallRooms": layers[4],
+			"all": layers[5],
+			"dungeonType": "caves"
+		}
 
