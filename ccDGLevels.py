@@ -738,6 +738,15 @@ class Caves:
 		* "hallonly"  : draw only the walls of hallways
 		* "nowalls"   : draw the floors of rooms and hallways
 		* "nonsolid   : draw all wall and floor cells of rooms and hallways
+		* "layers"    : draw all layers and return them in a stack
+		* "image"     : draw all layers needed for imaging (returns a 3D array)
+
+		The layer order for image mode is as follows:
+		0. Floor, Rooms
+		1. Floor, Hallways
+		2. Walls
+		3. Doors
+		4. Everything
 		"""
 		maskRoom = np.zeros(self.size.npar, bool)
 		maskRoomCarvePos = np.zeros(self.size.npar, bool)
@@ -791,6 +800,14 @@ class Caves:
 			return ((maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg) | maskHall
 		elif mode.upper() == "HALLONLY": # This removes overlapping internal edges
 			return maskHallEdge & ~maskHallFloor
+		elif mode.upper() == "LAYERS":
+			return np.array((
+				maskRoom,
+				maskRoomCarvePos, maskRoomCarveNeg,
+				maskRoomEdgePos, maskRoomEdgeNeg,
+				maskRoomFloorPos, maskRoomFloorNeg,
+				maskHall, maskHallEdge, maskHallFloor
+			))
 		elif mode.upper() == "IMAGE":
 			return (
 				maskHallFloor,
@@ -810,15 +827,8 @@ class Caves:
 				),
 				(
 					(maskRoom | maskRoomCarvePos) & ~ maskRoomFloorNeg
-				) | maskHall
-			)
-		elif mode.upper() == "LAYERS":
-			return (
-				maskRoom,
-				maskRoomCarvePos, maskRoomCarveNeg,
-				maskRoomEdgePos, maskRoomEdgeNeg,
-				maskRoomFloorPos, maskRoomFloorNeg,
-				maskHall, maskHallEdge, maskHallFloor
+				) | maskHall,
+				((maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg) | maskHall
 			)
 
 		return (
