@@ -34,7 +34,8 @@ class Renderer:
 		self.image = np.zeros((self.size.y, dungeon.size.x, self.channels), np.uint8)
 
 		self.masks = dungeon.getImageData()
-		self.dungeonType = masks["dungeonType"]
+		self.dungeonSize = dungeon.size
+		self.dungeonType = self.masks["dungeonType"]
 
 		self.tileInfo = tileInfo
 		self.loadTiles()
@@ -85,10 +86,20 @@ class Renderer:
 				failedToLoad = True
 				break
 
-			if self.tiles[k]["probabilities"][-1] > 1.:
+			if self.tiles[k]["probabilities"][-1] != 1.:
 				# Won't break things but undesireable
 				print("Warning! Tile probabilities on", k, "do not add up to 1.")
+				print("(Actual sum:", self.tiles[k]["probabilities"][-1], ")")
 				print("You may see weird distributions of this tile type.")
+			if len(self.tiles[k]["probabilities"]) - 1 != self.tiles[k]["variants"]:
+				print("Warning! Number of probabilities does not match number of sprites!")
+				print(
+					"Sprites:", self.tiles[k]["variants"],
+					"; Probabilities:", len(self.tiles[k]["probabilities"])
+				)
+				print("Please do not run render()! Things will Go Wrong!!")
+				print("Double check you tileInfo!!")
+
 
 		if failedToLoad:
 			print("Warning! Tile loading failed. Please re-invoke loadTiles()")
@@ -97,7 +108,7 @@ class Renderer:
 			print(self.tileInfo)
 			self.tiles = {}
 
-	def render(reset : bool = False):
+	def render(self, reset : bool = False):
 		"""Use the masks to paint the tiles on one layer at a time"""
 		if reset: # Clear out old rendering work
 			self.image = np.zeros((self.size.y, self.size.x, self.channels), np.uint8)
@@ -110,23 +121,28 @@ class Renderer:
 			paintOrder = ()
 
 		for layer in paintOrder:
-			indices = np.where(
-				self.masks[layer].repeat(self.scale.y, 0).repeat(self.scale.x, 1)
-			) # Scale up the current mask to the image size
 			# Decide randomly which tile variants will appear where
-			variantizer = np.random.uniform(size = self.dungeon.size.npar)
+			variantizer = np.random.uniform(size = self.dungeonSize.npar)
 			# Do you want this typed out in full two more times? Me neither
-			probs = self.tiles[layer]["probabilites"]
+			probs = self.tiles[layer]["probabilities"]
 
 			for i in range(self.tiles[layer]["variants"]): # Across all variants
 				tileSheet = np.tile( # For the numpy magic below
 					self.tiles[layer]["tiles"][i],
-					(self.dungeon.size.y, self.dungeon.size.x, 1)
+					(self.dungeonSize.y, self.dungeonSize.x, 1)
 				)
 				# Because we need two prob values, we need the concat of zeros
 				# as shown above in loadTiles()
-				variedIndicies = indices & (variantizer >= probs[i]) \
-					& (variantizer < probs[i + 1])
+			
+				variedIndicies = np.where(
+					(
+						self.masks[layer] & (
+							variantizer >= probs[i]
+						) & (
+							variantizer < probs[i + 1]
+						)
+					).repeat(self.scale.y, 0).repeat(self.scale.x, 1)
+				) # Scale up the current mask to the image size
 				# Numpy magic!
 				self.image[variedIndicies] = tileSheet[variedIndicies]
 

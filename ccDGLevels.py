@@ -416,10 +416,10 @@ class Catacombs:
 		"""Separate image layer masks out into values in a dictionary"""
 		layers = self.draw("IMAGE")
 		return {
-			"floorRooms" : layers[0],
-			"floorHalls" : layers[1],
-			"walls" : layers[2],
-			"doors" : layers[3],
+			"floor" : layers[0],
+			"hall" : layers[1],
+			"wall" : layers[2],
+			"door" : layers[3],
 			"all" : layers[4],
 			"dungeonType": "catacombs"
 		}
@@ -852,11 +852,11 @@ class Caves:
 		"""Separate image layer masks out into values in a dictionary"""
 		layers = self.draw("IMAGE")
 		return {
-			"floorHalls": layers[0],
-			"floorRooms": layers[1],
-			"floorCarves": layers[2],
-			"wallHalls": layers[3],
-			"wallRooms": layers[4],
+			"floorHall": layers[0],
+			"floorRoom": layers[1],
+			"floorCarve": layers[2],
+			"wallHall": layers[3],
+			"wallRoom": layers[4],
 			"all": layers[5],
 			"dungeonType": "caves"
 		}
