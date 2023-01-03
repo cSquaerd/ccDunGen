@@ -14,8 +14,9 @@ class Renderer:
 	):
 		"""
 		Requires a constructed dungeon, a tile information dictionary,
-		and a resolution size of each tile. Optionally,
-		non-square tiles can be specified with a Y-resolution,
+		and a resolution size of each tile.
+
+		Optionally, non-square tiles can be specified with a Y-resolution,
 		and it can be specified if an alpha channel should be used.
 		"""
 		if tileResY == 0: # Square tiles

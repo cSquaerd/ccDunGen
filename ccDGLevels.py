@@ -10,6 +10,16 @@ class Catacombs:
 		padx : int = 0, pady : int = 0,
 		thick : int = 1, varih : int = 0
 	):
+		"""
+		Requires a width & height in cells, a room count, an average area per room
+		expressed as a percentage (0.0 -> 1.0), absolute deviations in room size
+		in the x and y directions, how many connections each room should have
+		at minimum, and whether to shift the midpoint of hallways or not.
+		
+		Optionally, padding widths in the x and y directions,
+		a hallway thickness, and an absolute deviation in hallway thickness
+		can be specified.
+		"""
 		self.size = Point(w, h)
 		self.roomCount = rct
 		self.roomAvgAreaPercent = raap
@@ -430,11 +440,23 @@ class Caves:
 		self, w : int, h : int,
 		rct : int, raap : float,
 		carvep : float, carven : int,
-		carveq : int, carver : int,
+		carveq : float, carver : int,
 		vari : int, conn : int,
 		pad : int = 0, thick : int = 1,
 		varihr : int = 0, variha : float = 0.
 	):
+		"""
+		Requires a width and height in cells, a room count, an average area per room
+		expressed as a percentage (0.0 -> 1.0), the probability that a carve
+		is positive (adds area to its room), the number of times to carve each room,
+		the divisor of the room radius used to compute the carve radius,
+		the absolute deviation of the carve radius, the absolute deviation of the
+		room radius, and how many connections each room should have at minimum.
+		
+		Optionally, a radial padding radius, a hallway radius, the absolute deviation
+		of the hallway radius, and the absolute deviation of the hallway angle
+		can be specified.
+		"""
 		self.size = Point(w, h)
 		self.roomCount = rct
 		self.roomAvgAreaPercent = raap
