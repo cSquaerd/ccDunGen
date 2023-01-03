@@ -1,5 +1,22 @@
 from ccDGGeom import np, Point, Rectangle, Line, Circle
 
+def maskToString(mask : np.array) -> str:
+	"""
+	Convert a 2D boolean array into a string using unicode block element characters
+	"""
+	if mask.shape[0] % 2 != 0:
+		mask = np.vstack((mask, np.zeros(mask.shape[1], bool)))
+
+	summer = np.array([1, 2]).reshape(2, 1)
+	converter = lambda n : [' ', '\u2580', '\u2584', '\u2588'][n]
+	s = ''
+
+	for i in range(0, mask.shape[0], 2):
+		row = np.sum(mask.astype(int)[i:i + 2] * summer, axis = 0)
+		s += ''.join(map(converter, row)) + '\n'
+
+	return s
+
 class Catacombs:
 	"""Nethack style dungeon"""
 	def __init__(
