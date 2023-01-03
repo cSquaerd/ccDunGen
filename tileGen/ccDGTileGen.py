@@ -65,13 +65,16 @@ tileSize = (16, 16, 3)
 baseTile = np.ones(tileSize, float)
 
 tileTileKeys = (
-	"boxN", "boxE", "boxS", "boxW",
-	"diagNE", "diagNW", "diagSW", "diagSE"
+	"boxN", "boxE", "boxS", "boxW", # Straight lines
+	"diagNE", "diagNW", "diagSW", "diagSE" # Diagonal lines
 )
 tileBrickKeys = (
-	"horiz2", "horiz3", "horiz4", "horiz5",
-	"vert2", "vert3", "vert4", "vert5"
+	"horiz2", "horiz3", "horiz4", "horiz5", "horiz6", "horiz7",
+	"vert2", "vert3", "vert4", "vert5", "vert6", "vert7"
 )
+# 25 -> 75 % in 5 % increments
+tileDirtKeys = tuple(((np.arange(11) + 1) * 5 + 20).tolist())
+dirtSeed = 0xdeadbeef # lol
 
 shadeCount = 24
 shadeNames = (
@@ -82,7 +85,7 @@ shadeNames = (
 	"YELLOW",
 	"LIME",
 	"GRASS",
-	"GREEN1",
+	"GREEN1", # Couldn't tell these fuckers apart at all
 	"GREEN2",
 	"GREEN3",
 	"GREEN4",
@@ -170,8 +173,39 @@ for k in tileTileKeys:
 			x = np.arange(8, 16)
 
 	tileMask = np.zeros(tileSize, float)
-	tileMask[y, x] = maskVal
+	tileMask[y, x] = maskVal # Thank god for numpy
 	tileTileMasks[k] = tileMask
+
+tileBrickMasks = {}
+
+for k in tileBrickKeys:
+	maskType = k[:-1]
+	maskLineCount = int(k[-1])
+
+	lineCoords = np.linspace(
+		0, 15, maskLineCount + 1
+	).round().astype(int)[:maskLineCount]
+	tileMask = np.zeros(tileSize, float)
+	
+	if maskType == "horiz":
+		tileMask[lineCoords, :] = -0.25
+	elif maskType == "vert":
+		tileMask[:, lineCoords] = -0.25
+
+	tileBrickMasks[k] = tileMask
+
+tileDirtMasks = {}
+np.random.seed(dirtSeed)
+
+for k in tileDirtKeys:
+	prob = k / 100.
+	noise = np.random.uniform(size = tileSize[:2])
+
+	tileMask = np.zeros(tileSize, float)
+
+	tileMask[np.where(noise < prob)] = -0.5
+
+	tileDirtMasks[k] = tileMask
 
 tileDirectory = "./tiles/"
 paletteNames = ("BRIGHT", "DARK", "GRAY")
@@ -183,9 +217,14 @@ for palette in (colorsBright, colorsDark, colorsGray):
 		shade = palette[c]
 		print(shadeName)
 
-		for comboCount in range(6, 9):
+		for comboCount in range(6, 9): # k in {6, 7, 8}
+			# k = 6 is 28 combinations, k = 7 is 8, and k = 8 is 1.
+			# This means there are 37 combinations total for tiles.
 			maskCombiner = combinations(tileTileKeys, comboCount)
-			for maskGroup in maskCombiner:
+			#if p == 2 and c == 23:
+			#	for t in tuple(maskCombiner):
+			#		print(t)
+			for maskGroup in maskCombiner: # I love big-O notation :-)
 				boxStrings = list({s[-1] if len(s) == 4 else '' for s in maskGroup})
 				try:
 					boxStrings.remove('')
@@ -214,4 +253,41 @@ for palette in (colorsBright, colorsDark, colorsGray):
 				cv.imwrite(
 					tileDirectory + "TILE-" + fileSuffix + ".png", mask.astype(np.uint8)
 				)
+
+		# With 6 types each for horizontal and vertical brick lines,
+		# we have 36 combinations
+		for kh in tileBrickKeys[:6]:
+			for kv in tileBrickKeys[6:]:
+				fileSuffix = (
+					shadeName + paletteString if p < 2 else paletteString + str(c)
+				) + '-' + kh + '-' + kv
+
+				mask = baseTile.copy()
+				mask += tileBrickMasks[kh]
+				mask += tileBrickMasks[kv]
+
+				mask *= shade
+
+				cv.imwrite(
+					tileDirectory + "BRICK-" + fileSuffix + ".png", mask.astype(np.uint8)
+				)
+
+		# We have 11 dirt probabilites overall.
+		for k in tileDirtKeys:
+			fileSuffix = (
+				shadeName + paletteString if p < 2 else paletteString + str(c)
+			) + '-' + str(k)
+
+			mask = baseTile.copy()
+			mask += tileDirtMasks[k]
+
+			mask *= shade
+
+			cv.imwrite(
+				tileDirectory + "DIRT-" + fileSuffix + ".png", mask.astype(np.uint8)
+			)
+	
+		# From the above comments, we have 37 + 36 + 11 = 84 different textures.
+		# Across 72 colors, we have 84 * 72 = 6048 different tiles in total.
+		# On disk, this is about 24 MB.
 	p += 1
