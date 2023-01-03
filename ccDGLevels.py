@@ -850,7 +850,7 @@ class Caves:
 		elif mode.upper() == "IMAGE":
 			return (
 				maskHallFloor,
-				maskRoomFloorPos,
+				maskRoomFloorPos & ~maskRoomCarveNeg,
 				maskRoomFloorPos & maskRoomCarvePos & ~maskRoom,
 				( # Part 2 of standard draw
 					maskHallEdge & ~maskHallFloor
@@ -864,9 +864,6 @@ class Caves:
 						maskRoomEdgeNeg & maskRoom
 					) & ~maskHallFloor
 				),
-				(
-					(maskRoom | maskRoomCarvePos) & ~ maskRoomFloorNeg
-				) | maskHall,
 				((maskRoom | maskRoomCarvePos) & ~maskRoomFloorNeg) | maskHall
 			)
 

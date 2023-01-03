@@ -1,9 +1,37 @@
 from ccDGLevels import Catacombs, Caves
 from ccDGLevels import np, Point, Rectangle, Line, Circle
 import cv2 as cv
+from os.path import exists as fileExists
+import json
 
 catacombsTileKeys = ("hall", "floor", "wall", "door")
-cavesTileKeys = ("floorHall", "floorRoom", "floorCarve", "wallHall", "wallRoom")
+cavesTileKeys = ("wallHall", "wallRoom", "floorHall", "floorRoom", "floorCarve")
+
+def checkTileInfo(tileInfo : dict):
+	"""Go through each file entry and check that they're spelled right"""
+	noError = True
+	errorCount = 0
+
+	for k in tileInfo.keys():
+		for f in tileInfo[k]["files"]:
+			if not fileExists(f):
+				print("Warning! Bad path:", f)
+				noError = False
+				errorCount += 1
+
+	if noError:
+		print("No problems detected in tileInfo.")
+	else:
+		print(errorCount, "paths were bad, please see above and fix them.")
+
+def loadTileInfo(filename : str) -> dict:
+	"""Load in tileInfo dicts from JSON"""
+	try:
+		with open(filename, 'r') as file:
+			return json.load(file)
+	except FileNotFoundError as e:
+		print("Error!", e)
+		return {}
 
 class Renderer:
 	""""""
@@ -32,7 +60,7 @@ class Renderer:
 			self.channels = 3
 		# Note: OpenCV's default colorspace is BGR, not RGB.
 		# To preview this properly, you need to reverse the third axis (see below)
-		self.image = np.zeros((self.size.y, dungeon.size.x, self.channels), np.uint8)
+		self.image = np.zeros((self.size.y, self.size.x, self.channels), np.uint8)
 
 		self.masks = dungeon.getImageData()
 		self.dungeonSize = dungeon.size
