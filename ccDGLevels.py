@@ -58,10 +58,10 @@ class Catacombs:
 	def __str__(self) -> str:
 		"""String representation"""
 		return (
-			"A {} wide by {} tall dungeon,\n" \
-			+ "with {} rooms of about {:02.0f}% average area each,\n" \
-			+ "or of average dimension {} wide by {} tall,\n" \
-			+ "with an average of {} hallways out of each room;\n" \
+			"A {} wide by {} tall dungeon,\n"
+			+ "with {} rooms of about {:02.0f}% average area each,\n"
+			+ "or of average dimension {} wide by {} tall,\n"
+			+ "with an average of {} hallways out of each room;\n"
 			+ "Rooms are padded by at least {} East-West & {} North-South,\n"
 			+ "and have a length variance of +/-{} wide and +/- {} tall."
 		).format(
@@ -503,12 +503,12 @@ class Caves:
 	def __str__(self) -> str:
 		"""String representation"""
 		return (
-			"A {} wide by {} tall cave network,\n" \
-			+ "with {} chambers of about {:02.0f}% average area each,\n" \
-			+ "or of average radius {}, with an average of {} tunnels\n" \
-			+ "out of each chamber; Each chamber is carved {} times\n" \
-			+ "with a {:02.0f}% chance of filling in,\n" \
-			+ "with circles of average radius {} +/- {};\n" \
+			"A {} wide by {} tall cave network,\n"
+			+ "with {} chambers of about {:02.0f}% average area each,\n"
+			+ "or of average radius {}, with an average of {} tunnels\n"
+			+ "out of each chamber; Each chamber is carved {} times\n"
+			+ "with a {:02.0f}% chance of filling in,\n"
+			+ "with circles of average radius {} +/- {};\n"
 			+ "Rooms are padded by at least {} radial cells,\n"
 			+ "and have a radius variance of +/- {}."
 		).format(
@@ -898,7 +898,7 @@ class Caves:
 		}
 
 class City:
-	"""Docstring"""
+	"""Grid-planned cities and towns"""
 	def __init__(
 		self, w : int, h : int, streetx : int, streety : int,
 		streetw : int, varis : int,
@@ -907,7 +907,17 @@ class City:
 		plazap : float, plazax : int, plazay : int,
 		padbx : int = 0, padby : int = 0
 	):
-		"""Docstring"""
+		"""
+		Requires a width & height in cells, a count of horizontal and vertical streets,
+		a street width, the absolute deviation of the street width,
+		a count of buildings per lot, the probability for a lot to have buildings,
+		the average area of each building expressed as a percentage (0.0 -> 1.0),
+		the absolute deviations of buildings' width & height,
+		the probability for a plaza to generate instead of a lot,
+		and how many lots a plaza will take up in width and height.
+
+		Optionally, the padding space around each building in a lot can be specified.
+		"""
 		self.size = Point(w, h)
 		self.streetCount = Point(streetx, streety)
 		self.streetWidth = streetw
@@ -918,13 +928,56 @@ class City:
 		self.buildingPadding = Point(padbx, padby)
 
 		self.lotSize = (
-			self.size - (self.streetCount * streetWidth)
-		) // self.streetCount
-		self.buildingAverageAreaPercent = bapp
+			self.size - (
+				self.streetCount * (self.streetWidth + self.varianceStreet)
+			)
+		) // self.streetCount.npar
+		self.buildingAverageAreaPercent = baap
 		self.buildingSize = Point(
 			*(
 				(
-					self.lotSize - self.buildingPadding
-				) * np.sqrt(self.buildingAverageAreaPercent)
-			).astype(int)[::-1]
+					(
+						self.lotSize.npar - self.buildingPadding.npar
+					) * np.sqrt(self.buildingAverageAreaPercent)
+				).astype(int)[::-1]
+			)
 		)
+		self.varianceBuilding = Point(varibx, variby),
+
+		self.plazaChance = plazap
+		self.plazaSize = Point(plazax, plazay)
+
+		self.streets = []
+		self.lots = []
+		self.buildings = []
+		self.plazas = []
+		self.plazaStreetCovers = []
+
+	def __str__(self) -> str:
+		"""String representation"""
+		return (
+			"A {} wide by {} tall city,\n"
+			+ "with {} North-South streets and {} East-West streets\n"
+			+ "which are each {} +/- {} cells wide;\n"
+			+ "The streets contain lots that are {} wide by {} tall,\n"
+			+ "which {:02.0f}% of the time contain on average {} buildings,\n"
+			+ "which each are on average {} +/- {} wide by {} +/- {} tall;\n"
+			+ "In the place of lots, there is a {:02.0f}% chance of there being\n"
+			+ "a plaza, which take up {} lots wide by {} lots tall worth of the city."
+		).format(
+			self.size.x, self.size.y,
+			self.streetCount.x, self.streetCount.y,
+			self.streetWidth, self.varianceStreet,
+			self.lotSize.x, self.lotSize.y,
+			self.buildingChance * 100., self.buildingCount,
+			self.buildingSize.x, self.buildingPadding.x,
+			self.buildingSize.y, self.buildingPadding.y,
+			self.plazaChance * 100.,
+			self.plazaSize.x, self.plazaSize.y
+		)
+	
+	def __repr__(self) -> str:
+		"""Generic representation"""
+		return self.__str__()
+
+	

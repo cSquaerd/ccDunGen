@@ -34,7 +34,7 @@ class Point:
 		# because type "hints" aren't strictly enforced
 		p = self.npar * scalar
 		return Point(p[1], p[0])
-	def __floordiv__(self, divisor : int):
+	def __floordiv__(self, divisor : np.array):
 		# Ditto
 		p = self.npar // divisor
 		return Point(p[1], p[0])
