@@ -897,3 +897,34 @@ class Caves:
 			"dungeonType": "caves"
 		}
 
+class City:
+	"""Docstring"""
+	def __init__(
+		self, w : int, h : int, streetx : int, streety : int,
+		streetw : int, varis : int,
+		buildingc : int, buildingp : float, baap : float,
+		varibx : int, variby : int,
+		plazap : float, plazax : int, plazay : int,
+		padbx : int = 0, padby : int = 0
+	):
+		"""Docstring"""
+		self.size = Point(w, h)
+		self.streetCount = Point(streetx, streety)
+		self.streetWidth = streetw
+		self.varianceStreet = varis
+
+		self.buildingCount = buildingc
+		self.buildingChance = buildingp
+		self.buildingPadding = Point(padbx, padby)
+
+		self.lotSize = (
+			self.size - (self.streetCount * streetWidth)
+		) // self.streetCount
+		self.buildingAverageAreaPercent = bapp
+		self.buildingSize = Point(
+			*(
+				(
+					self.lotSize - self.buildingPadding
+				) * np.sqrt(self.buildingAverageAreaPercent)
+			).astype(int)[::-1]
+		)
