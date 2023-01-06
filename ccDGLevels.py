@@ -903,9 +903,9 @@ class City:
 		self, w : int, h : int, streetv : int, streeth : int,
 		streetw : int, varis : int,
 		buildingc : int, buildingp : float, baap : float,
-		varibx : int, variby : int,
 		plazap : float, plazabp : float, 
 		plazax : int, plazay : int,
+		varibx : int = 0, variby : int = 0,
 		padbx : int = 0, padby : int = 0
 	):
 		"""
@@ -913,13 +913,12 @@ class City:
 		a street width, the absolute deviation of the street width,
 		a count of buildings per lot, the probability for a lot to have buildings,
 		the average area of each building expressed as a percentage (0.0 -> 1.0),
-		the absolute deviations of buildings' width & height,
 		the probability for a plaza to generate instead of a lot,
 		the probability for buildings to generate in a plaza,
 		and how many lots a plaza will take up in width and height.
 
-		Optionally, the padding space around each building in a lot or plaza
-		can be specified.
+		Optionally, the absolute deviation of the width and height of, as well as
+		the padding space around, each building in a lot or plaza, can be specified.
 		"""
 		self.size = Point(w, h)
 		self.streetCount = Point(streetv, streeth)
@@ -946,7 +945,7 @@ class City:
 				).astype(int)[::-1]
 			)
 		)
-		self.varianceBuilding = Point(varibx, variby),
+		self.varianceBuilding = Point(varibx, variby)
 
 		self.plazaChance = plazap
 		self.plazaBuildingChance = plazabp
@@ -965,7 +964,8 @@ class City:
 			+ "which are each {} +/- {} cells wide;\n"
 			+ "The streets contain lots that are {} wide by {} tall,\n"
 			+ "which {:02.0f}% of the time contain on average {} buildings,\n"
-			+ "which each are on average {} +/- {} wide by {} +/- {} tall;\n"
+			+ "which each are on average {} +/- {} wide by {} +/- {} tall,\n"
+			+ "and are padded by at least {} East-West and {} North South;\n"
 			+ "In the place of lots, there is a {:02.0f}% chance of there being\n"
 			+ "a plaza, which take up {} lots wide by {} lots tall worth of the city;\n"
 			+ "In each plaza, there is a {:02.0f}% chance for there to be\n"
@@ -976,8 +976,9 @@ class City:
 			self.streetWidth, self.varianceStreet,
 			self.lotSize.x, self.lotSize.y,
 			self.buildingChance * 100., self.buildingCount,
-			self.buildingSize.x, self.buildingPadding.x,
-			self.buildingSize.y, self.buildingPadding.y,
+			self.buildingSize.x, self.varianceBuilding.x,
+			self.buildingSize.y, self.varianceBuilding.y,
+			self.buildingPadding.x, self.buildingPadding.y,
 			self.plazaChance * 100.,
 			self.plazaSize.x, self.plazaSize.y,
 			self.plazaBuildingChance * 100.,
@@ -995,9 +996,10 @@ class City:
 
 		self.streets = []
 		self.lots = []
-		self.buildings = []
 		self.plazas = []
-		self.plazaStreetCovers = []
+		self.buildings = []
+
+		middleOfStreet = self.streetMaxWidth // 2 - (1 - (self.streetMaxWidth % 2))
 
 		for xi in range(self.streetCount.x):
 			x = xi * (self.streetMaxWidth + self.lotSize.x)
@@ -1005,7 +1007,7 @@ class City:
 				-self.varianceStreet, self.varianceStreet + 1
 			)
 
-			middle = x + width // 2 - (1 - (width % 2))
+			middle = x + middleOfStreet
 			xl = middle
 			d = 1
 			for i in range(width):
@@ -1021,7 +1023,7 @@ class City:
 				-self.varianceStreet, self.varianceStreet + 1
 			)
 
-			middle = y + width // 2 - (1 - (width % 2))
+			middle = y + middleOfStreet
 			yl = middle
 			d = 1
 			for i in range(width):
@@ -1077,6 +1079,98 @@ class City:
 					self.lots.append(
 						Rectangle(origin.x, origin.y, self.lotSize.x, self.lotSize.y)
 					)
+	def genBuildings(self, reset : bool, attemptsOverride : int = 0):
+		"""Docstring"""
+		if not reset:
+			return
+
+		self.buildings = []
+		# Cap how many times rectangles are generated
+		if attemptsOverride > 0:
+			maxAttempts = attemptsOverride
+		else:
+			maxAttempts = int(
+				round(
+					self.buildingCount * max(
+						self.buildingPadding.x, self.buildingPadding.y, 1
+					) * 10. ** (
+						-np.log(
+							1. - self.buildingCount * self.buildingAverageAreaPercent
+						)
+					) * np.e ** (
+						1. + self.buildingCount * self.buildingAverageAreaPercent
+					)
+				)
+			)
+		# Try to generate valid rooms
+		for block in self.lots + self.plazas:
+			if block in self.lots:
+				build = np.random.uniform() < self.buildingChance
+				buildCount = self.buildingCount
+				maxAttemptsActual = maxAttempts
+			else:
+				build = np.random.uniform() < self.plazaBuildingChance
+				buildCount = self.buildingCount * np.prod(self.plazaSize.npar)
+				maxAttemptsActual = maxAttempts * np.prod(self.plazaSize.npar)
+
+			if not build:
+				print("Skipping lot", block.origin)
+				continue
+
+			extent = (
+				block.origin + Point(block.width, block.height)
+			) - (self.buildingSize + self.varianceBuilding)
+			print(block.origin, extent, maxAttemptsActual)
+
+			buildingsPlaced = 0
+			attempts = 0
+
+			while buildingsPlaced < buildCount:
+				attempts += 1
+				noise = np.random.randint(
+					-self.varianceBuilding.npar[::-1],
+					self.varianceBuilding.npar[::-1] + 1,
+					2
+				)
+				newOrigin = Point(
+					*(
+						np.random.randint(block.origin.npar, extent.npar, 2)[::-1]
+					)
+				)
+				newSize = Point(
+					*np.maximum(
+						self.buildingSize.npar[::-1] + noise,
+						np.zeros(2, int) + 3
+					)
+				)
+
+				newBuilding = Rectangle(newOrigin.x, newOrigin.y, newSize.x, newSize.y)
+				newBuildingPadZone = Rectangle(
+					max(newOrigin.x - self.buildingPadding.x, 0),
+					max(newOrigin.y - self.buildingPadding.y, 0),
+					newSize.x + 2 * self.buildingPadding.x,
+					newSize.y + 2 * self.buildingPadding.y,
+				)
+
+				nonOverlapping = True
+				for b in self.buildings:
+					if newBuildingPadZone & b:
+						nonOverlapping = False
+						break
+
+				if nonOverlapping:
+					self.buildings.append(newBuilding)
+					buildingsPlaced += 1
+
+				if attempts > maxAttemptsActual:
+					if buildingsPlaced < self.buildingCount:
+						print("Warning: maximum building generation attempts reached.")
+						print("The block at", block.origin, "will only have")
+						print(buildingsPlaced, "buildings.")
+					break
+
+			print("Attempted building generation", attempts, "times")
+			print("on the block at", block.origin)
 
 	def draw(self, mode : str = "") -> np.array:
 		"""Docstring"""
@@ -1084,6 +1178,8 @@ class City:
 		maskStreetH = np.zeros(self.size.npar, bool)
 		maskLotAndPlazaEdge = np.zeros(self.size.npar, bool)
 		maskLotAndPlazaFill = np.zeros(self.size.npar, bool)
+		maskBuildingEdge = np.zeros(self.size.npar, bool)
+		maskBuildingFill = np.zeros(self.size.npar, bool)
 
 		for line in self.streets:
 			if line.orient.x != 0:
@@ -1099,9 +1195,15 @@ class City:
 			maskLotAndPlazaEdge |= plaza.getMaskEdge(*self.size.tupl)
 			maskLotAndPlazaFill |= plaza.getMaskFill(*self.size.tupl)
 
+		for building in self.buildings:
+			maskBuildingEdge |= building.getMaskEdge(*self.size.tupl)
+			maskBuildingFill |= building.getMaskFill(*self.size.tupl)
+
 		return np.array((
-			maskLotAndPlazaEdge,
-			(maskStreetV | maskStreetH) & ~maskLotAndPlazaFill,
-			(maskStreetV & maskStreetH)
+			(
+				(maskStreetV | maskStreetH)
+				& ~maskLotAndPlazaFill
+			) | maskBuildingEdge,
+			maskLotAndPlazaFill
 		))
 
