@@ -24,10 +24,16 @@ class Point:
 
 	# Arithmetic operators
 	def __add__(self, other):
-		p = self.npar + other.npar
+		if type(other) in (int, float):
+			p = self.npar + other
+		else:
+			p = self.npar + other.npar
 		return Point(p[1], p[0])
 	def __sub__(self, other):
-		p = self.npar - other.npar
+		if type(other) in (int, float):
+			p = self.npar - other
+		else:
+			p = self.npar - other.npar
 		return Point(p[1], p[0])
 	def __mul__(self, scalar : int):
 		# Note: happens to work with numpy arrays of the same shape

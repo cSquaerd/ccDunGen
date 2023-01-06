@@ -900,28 +900,32 @@ class Caves:
 class City:
 	"""Grid-planned cities and towns"""
 	def __init__(
-		self, w : int, h : int, streetx : int, streety : int,
+		self, w : int, h : int, streetv : int, streeth : int,
 		streetw : int, varis : int,
 		buildingc : int, buildingp : float, baap : float,
 		varibx : int, variby : int,
-		plazap : float, plazax : int, plazay : int,
+		plazap : float, plazabp : float, 
+		plazax : int, plazay : int,
 		padbx : int = 0, padby : int = 0
 	):
 		"""
-		Requires a width & height in cells, a count of horizontal and vertical streets,
+		Requires a width & height in cells, a count of vertical and horizontal streets,
 		a street width, the absolute deviation of the street width,
 		a count of buildings per lot, the probability for a lot to have buildings,
 		the average area of each building expressed as a percentage (0.0 -> 1.0),
 		the absolute deviations of buildings' width & height,
 		the probability for a plaza to generate instead of a lot,
+		the probability for buildings to generate in a plaza,
 		and how many lots a plaza will take up in width and height.
 
-		Optionally, the padding space around each building in a lot can be specified.
+		Optionally, the padding space around each building in a lot or plaza
+		can be specified.
 		"""
 		self.size = Point(w, h)
-		self.streetCount = Point(streetx, streety)
+		self.streetCount = Point(streetv, streeth)
 		self.streetWidth = streetw
 		self.varianceStreet = varis
+		self.streetMaxWidth = self.streetWidth + self.varianceStreet
 
 		self.buildingCount = buildingc
 		self.buildingChance = buildingp
@@ -931,7 +935,7 @@ class City:
 			self.size - (
 				self.streetCount * (self.streetWidth + self.varianceStreet)
 			)
-		) // self.streetCount.npar
+		) // (self.streetCount.npar - 1)
 		self.buildingAverageAreaPercent = baap
 		self.buildingSize = Point(
 			*(
@@ -945,13 +949,13 @@ class City:
 		self.varianceBuilding = Point(varibx, variby),
 
 		self.plazaChance = plazap
+		self.plazaBuildingChance = plazabp
 		self.plazaSize = Point(plazax, plazay)
 
 		self.streets = []
 		self.lots = []
-		self.buildings = []
 		self.plazas = []
-		self.plazaStreetCovers = []
+		self.buildings = []
 
 	def __str__(self) -> str:
 		"""String representation"""
@@ -963,7 +967,9 @@ class City:
 			+ "which {:02.0f}% of the time contain on average {} buildings,\n"
 			+ "which each are on average {} +/- {} wide by {} +/- {} tall;\n"
 			+ "In the place of lots, there is a {:02.0f}% chance of there being\n"
-			+ "a plaza, which take up {} lots wide by {} lots tall worth of the city."
+			+ "a plaza, which take up {} lots wide by {} lots tall worth of the city;\n"
+			+ "In each plaza, there is a {:02.0f}% chance for there to be\n"
+			+ "{} buildings instead of bare terrain."
 		).format(
 			self.size.x, self.size.y,
 			self.streetCount.x, self.streetCount.y,
@@ -973,11 +979,129 @@ class City:
 			self.buildingSize.x, self.buildingPadding.x,
 			self.buildingSize.y, self.buildingPadding.y,
 			self.plazaChance * 100.,
-			self.plazaSize.x, self.plazaSize.y
+			self.plazaSize.x, self.plazaSize.y,
+			self.plazaBuildingChance * 100.,
+			self.buildingCount * np.prod(self.plazaSize.npar)
 		)
 	
 	def __repr__(self) -> str:
 		"""Generic representation"""
 		return self.__str__()
 
-	
+	def genLayout(self, reset : bool):
+		"""Evenly lay out the streets, lots, and plazas"""
+		if not reset:
+			return
+
+		self.streets = []
+		self.lots = []
+		self.buildings = []
+		self.plazas = []
+		self.plazaStreetCovers = []
+
+		for xi in range(self.streetCount.x):
+			x = xi * (self.streetMaxWidth + self.lotSize.x)
+			width = self.streetWidth + np.random.randint(
+				-self.varianceStreet, self.varianceStreet + 1
+			)
+
+			middle = x + width // 2 - (1 - (width % 2))
+			xl = middle
+			d = 1
+			for i in range(width):
+				self.streets.append(Line(xl, 0, self.size.y, 's'))
+				xl = middle + d
+				d *= -1
+				if d > 0:
+					d += 1
+
+		for yi in range(self.streetCount.y):
+			y = yi * (self.streetMaxWidth + self.lotSize.y)
+			width = self.streetWidth + np.random.randint(
+				-self.varianceStreet, self.varianceStreet + 1
+			)
+
+			middle = y + width // 2 - (1 - (width % 2))
+			yl = middle
+			d = 1
+			for i in range(width):
+				self.streets.append(Line(0, yl, self.size.x, 'e'))
+				yl = middle + d
+				d *= -1
+				if d > 0:
+					d += 1
+
+		self.plazaLots = np.zeros(self.streetCount.npar - 1, bool)
+		deferPlaza = False
+		for yi in range(self.streetCount.y - 1):
+			for xi in range(self.streetCount.x - 1):
+				if self.plazaLots[yi, xi]:
+					continue
+
+				origin = (
+					Point(xi, yi) * (
+						self.lotSize + self.streetMaxWidth
+					).npar
+				) + self.streetMaxWidth
+
+				isPlaza = np.random.uniform() < self.plazaChance
+				cellsOpen = (self.streetCount - 1) - Point(xi, yi)
+				
+				if cellsOpen.x < self.plazaSize.x or cellsOpen.y < self.plazaSize.y:
+					if isPlaza:
+						print("Deferring plaza!", xi, yi)
+						deferPlaza = True
+						isPlaza = False
+				elif deferPlaza or isPlaza:
+					deferPlaza = False
+					isPlaza = True
+				
+				if isPlaza:
+					print("Making a plaza!", xi, yi)
+
+					plazaSize = (
+						self.lotSize * self.plazaSize.npar
+					) + (
+						(self.plazaSize - 1) * self.streetMaxWidth
+					)
+
+					self.plazas.append(
+						Rectangle(origin.x, origin.y, plazaSize.x, plazaSize.y)
+					)
+
+					for yp in range(self.plazaSize.y):
+						for xp in range(self.plazaSize.x):
+							self.plazaLots[yi + yp, xi + xp] = True
+
+				else:
+					self.lots.append(
+						Rectangle(origin.x, origin.y, self.lotSize.x, self.lotSize.y)
+					)
+
+	def draw(self, mode : str = "") -> np.array:
+		"""Docstring"""
+		maskStreetV = np.zeros(self.size.npar, bool)
+		maskStreetH = np.zeros(self.size.npar, bool)
+		maskLotAndPlazaEdge = np.zeros(self.size.npar, bool)
+		maskLotAndPlazaFill = np.zeros(self.size.npar, bool)
+
+		for line in self.streets:
+			if line.orient.x != 0:
+				maskStreetH |= line.getMask(*self.size.tupl)
+			elif line.orient.y != 0:
+				maskStreetV |= line.getMask(*self.size.tupl)
+
+		for lot in self.lots:
+			maskLotAndPlazaEdge |= lot.getMaskEdge(*self.size.tupl)
+			maskLotAndPlazaFill |= lot.getMaskFill(*self.size.tupl)
+
+		for plaza in self.plazas:
+			maskLotAndPlazaEdge |= plaza.getMaskEdge(*self.size.tupl)
+			maskLotAndPlazaFill |= plaza.getMaskFill(*self.size.tupl)
+
+		return np.array((
+			maskLotAndPlazaEdge,
+			(maskStreetV | maskStreetH) & ~maskLotAndPlazaFill,
+			(maskStreetV & maskStreetH)
+		))
+
