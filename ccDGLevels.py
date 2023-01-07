@@ -1196,7 +1196,7 @@ class City:
 						)
 					)
 
-					self.doors.append(Line(doorPoint.x, doorPoint.y, 1, 'n'))
+					self.doors.append(Line(doorPoint.x, doorPoint.y, 2, doorWall))
 
 				if attempts > maxAttemptsActual:
 					if buildingsPlaced < self.buildingCount:
@@ -1217,7 +1217,13 @@ class City:
 			ex. "doors" or "Doors" or "DOORS"
 		)
 
-		* default (""): draw the walls of rooms and hallways
+		* default ("")   : draw the walls of rooms and hallways
+		* "streets"      : draw only the streets
+		* "intersections": draw only where streets intersect
+		* "buildings"    : draw only the buildings and their entryways
+		* "blocks"       : draw everything that is not in the street
+		* "layers"       : draw all layers and return them in a stack
+		* "image"        : draw all layers needed for imaging (returns a 3D array)
 		"""
 		maskStreetV = np.zeros(self.size.npar, bool)
 		maskStreetH = np.zeros(self.size.npar, bool)
@@ -1248,13 +1254,47 @@ class City:
 		for door in self.doors:
 			maskDoor |= door.getMask(*self.size.tupl)
 
-		return np.array((
-			(
-				(maskStreetV | maskStreetH)
-				& ~maskLotAndPlazaFill
-			) | (
-				maskBuildingEdge & ~maskDoor
-			),
-			maskLotAndPlazaFill
-		))
+		if mode.upper() == "STREETS":
+			return maskStreetV | maskStreetH
+		elif mode.upper() == "INTERSECTIONS":
+			return maskStreetV & maskStreetH
+		elif mode.upper() == "BUILDINGS":
+			return (maskBuildingEdge & ~maskDoor) | (maskDoor & ~maskBuildingEdge)
+		elif mode.upper() == "BLOCKS":
+			return maskLotAndPlazaFill
+		elif mode.upper() == "LAYERS":
+			return np.array((
+				maskStreetV, maskStreetH,
+				maskLotAndPlazaEdge, maskLotAndPlazaFill,
+				maskBuildingEdge, maskBuildingFill, maskDoor
+			))
+		elif mode.upper() == "IMAGE":
+			return np.array((
+				maskLotAndPlazaFill | ~(maskStreetV | maskStreetH),
+				maskBuildingEdge & ~maskDoor,
+				maskBuildingEdge & maskDoor,
+				maskDoor & ~maskBuildingEdge,
+				maskBuildingFill & ~maskBuildingEdge,
+				maskStreetV | maskStreetH,
+				maskStreetV & maskStreetH
+			))
+
+		return (
+			((maskStreetV | maskStreetH) & ~maskLotAndPlazaFill)
+			| (maskBuildingEdge & ~maskDoor) | (maskDoor & ~maskBuildingEdge)
+		)
+
+	def getImageData(self) -> dict:
+		"""Separate image layer masks out into values in a dictionary"""
+		layers = self.draw("IMAGE")
+		return {
+			"ground" : layers[0],
+			"wall" : layers[1],
+			"door" : layers[2],
+			"porch" : layers[3],
+			"floor" : layers[4],
+			"street" : layers[5],
+			"intersection" : layers[6],
+			"dungeonType" : "city"
+		}
 

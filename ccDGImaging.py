@@ -1,4 +1,4 @@
-from ccDGLevels import Catacombs, Caves
+from ccDGLevels import Catacombs, Caves, City
 from ccDGLevels import np, Point, Rectangle, Line, Circle
 import cv2 as cv
 from os.path import exists as fileExists
@@ -6,6 +6,9 @@ import json
 
 catacombsTileKeys = ("hall", "floor", "wall", "door")
 cavesTileKeys = ("wallHall", "wallRoom", "floorHall", "floorRoom", "floorCarve")
+cityTileKeys = (
+	"street", "intersection", "ground", "wall", "door", "porch", "floor"
+)
 
 def checkTileInfo(tileInfo : dict):
 	"""Go through each file entry and check that they're spelled right"""
@@ -84,6 +87,8 @@ class Renderer:
 			self.tileKeys = catacombsTileKeys
 		elif self.dungeonType == "caves":
 			self.tileKeys = cavesTileKeys
+		elif self.dungeonType == "city":
+			self.tileKeys = cityTileKeys
 		else:
 			self.tileKeys = ()
 
@@ -146,6 +151,8 @@ class Renderer:
 			paintOrder = catacombsTileKeys
 		elif self.dungeonType == "caves":
 			paintOrder = cavesTileKeys
+		elif self.dungeonType == "city":
+			paintOrder = cityTileKeys
 		else:
 			paintOrder = ()
 
