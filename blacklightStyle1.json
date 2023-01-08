@@ -1,0 +1,110 @@
+{
+  "ground": {
+    "files": [
+      "./tiles/DIRT/DIRT-GRAY11-25.png",
+      "./tiles/DIRT/DIRT-GRAY11-30.png",
+      "./tiles/DIRT/DIRT-GRAY11-35.png",
+      "./tiles/DIRT/DIRT-GRAY11-60.png",
+      "./tiles/DIRT/DIRT-GRAY13-25.png",
+      "./tiles/DIRT/DIRT-GRAY13-30.png",
+      "./tiles/DIRT/DIRT-GRAY13-35.png",
+      "./tiles/DIRT/DIRT-GRAY13-60.png"
+    ],
+    "probs": [
+      0.18,
+      0.18,
+      0.18,
+      0.06,
+      0.12,
+      0.12,
+      0.12,
+      0.04
+    ]
+  },
+  "street": {
+    "files": [
+      "./tiles/BRICK/BRICK-GRAY3-horiz3-vert3.png",
+      "./tiles/BRICK/BRICK-GRAY3-horiz3-vert4.png",
+      "./tiles/BRICK/BRICK-GRAY3-horiz3-vert5.png",
+      "./tiles/BRICK/BRICK-GRAY3-horiz4-vert3.png",
+      "./tiles/BRICK/BRICK-GRAY3-horiz5-vert3.png"
+    ]
+  },
+  "intersection": {
+    "files": [
+      "./tiles/BRICK/BRICK-GRAY5-horiz5-vert3.png",
+      "./tiles/BRICK/BRICK-GRAY5-horiz5-vert5.png"
+    ]
+  },
+  "wall": {
+    "files": [
+      "./tiles/BRICK/BRICK-BRONZEDARK-horiz2-vert3.png",
+      "./tiles/BRICK/BRICK-BRONZEDARK-horiz3-vert2.png",
+      "./tiles/BRICK/BRICK-BRONZEDARK-horiz3-vert3.png",
+      "./tiles/BRICK/BRICK-BRONZEDARK-horiz4-vert3.png"
+    ]
+  },
+  "floor": {
+    "files": [
+      "./tiles/TILE/TILE-ORANGEDARK-B-E_N_S_W-D-NE_SW.png",
+      "./tiles/TILE/TILE-ORANGEDARK-B-E_N_S_W-D-NW_SE.png",
+      "./tiles/TILE/TILE-ORANGEDARK-B-E_N_S_W-D-NE_NW_SE.png",
+      "./tiles/TILE/TILE-ORANGEDARK-B-E_N_S_W-D-NE_NW_SW.png",
+      "./tiles/TILE/TILE-ORANGEDARK-B-E_N_S_W-D-NE_SE_SW.png",
+      "./tiles/TILE/TILE-ORANGEDARK-B-E_N_S_W-D-NW_SE_SW.png",
+      "./tiles/TILE/TILE-ORANGEDARK-B-E_N_S_W-D-NE_NW_SE_SW.png",
+      "./tiles/TILE/TILE-RORANGEDARK-B-E_N_S_W-D-NE_SW.png",
+      "./tiles/TILE/TILE-RORANGEDARK-B-E_N_S_W-D-NW_SE.png",
+      "./tiles/TILE/TILE-RORANGEDARK-B-E_N_S_W-D-NE_NW_SE.png",
+      "./tiles/TILE/TILE-RORANGEDARK-B-E_N_S_W-D-NE_NW_SW.png",
+      "./tiles/TILE/TILE-RORANGEDARK-B-E_N_S_W-D-NE_SE_SW.png",
+      "./tiles/TILE/TILE-RORANGEDARK-B-E_N_S_W-D-NW_SE_SW.png",
+      "./tiles/TILE/TILE-RORANGEDARK-B-E_N_S_W-D-NE_NW_SE_SW.png",
+      "./tiles/TILE/TILE-REDDARK-B-E_N_S_W-D-NE_SW.png",
+      "./tiles/TILE/TILE-REDDARK-B-E_N_S_W-D-NW_SE.png",
+      "./tiles/TILE/TILE-REDDARK-B-E_N_S_W-D-NE_NW_SE.png",
+      "./tiles/TILE/TILE-REDDARK-B-E_N_S_W-D-NE_NW_SW.png",
+      "./tiles/TILE/TILE-REDDARK-B-E_N_S_W-D-NE_SE_SW.png",
+      "./tiles/TILE/TILE-REDDARK-B-E_N_S_W-D-NW_SE_SW.png",
+      "./tiles/TILE/TILE-REDDARK-B-E_N_S_W-D-NE_NW_SE_SW.png"
+    ],
+    "probs": [
+      0.025,
+      0.025,
+      0.025,
+      0.025,
+      0.025,
+      0.025,
+      0.016666666666666666,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.06666666666666667,
+      0.025,
+      0.025,
+      0.025,
+      0.025,
+      0.025,
+      0.025,
+      0.016666666666666666
+    ]
+  },
+  "door": {
+    "files": [
+      "./tiles/BRICK/BRICK-RORANGEDARK-horiz4-vert3.png",
+      "./tiles/BRICK/BRICK-ORANGEDARK-horiz4-vert3.png",
+      "./tiles/BRICK/BRICK-REDDARK-horiz4-vert3.png",
+      "./tiles/BRICK/BRICK-YELLOWDARK-horiz4-vert3.png"
+    ]
+  },
+  "porch": {
+    "files": [
+      "./tiles/BRICK/BRICK-GRAY3-horiz3-vert3.png",
+      "./tiles/BRICK/BRICK-GRAY5-horiz3-vert3.png",
+      "./tiles/BRICK/BRICK-GRAY11-horiz3-vert3.png"
+    ]
+  }
+}
