@@ -76,6 +76,13 @@ tileBrickKeys = (
 tileDirtKeys = tuple(((np.arange(11) + 1) * 5 + 20).tolist())
 dirtSeed = 0xdeadbeef # lol
 
+tileDecorKeys = (
+	"chair", "tableS", "tableLEnd", "tableLMid", "tableLMidLegless"
+)
+tileDecorMirrorKeys = {
+	"chair", "tableLEnd"
+}
+
 shadeCount = 24
 shadeNames = (
 	"RED",
@@ -207,6 +214,70 @@ for k in tileDirtKeys:
 
 	tileDirtMasks[k] = tileMask
 
+tileDecorMasks = {}
+for k in tileDecorKeys:
+	tileMask = np.zeros((16, 16, 4), float)
+
+	if k == "chair":
+		tileMask[4:15, 4, :3] = 0.25
+		tileMask[2:13, 6, :3] = 0.25
+		tileMask[10:15, 12, :3] = 0.25
+		tileMask[8:13, 14, :3] = 0.25
+		tileMask[10, 4:13, :3] = 0.25
+		tileMask[8, 6:15, :3] = 0.25
+
+		tileMask[3:10, 5, :3] = 0.75
+		tileMask[9, 5:14, :3] = 0.75
+
+	elif k == "tableS":
+		tileMask[6, 4:12] = 0.25
+		tileMask[8, 2:14] = 0.25
+		tileMask[9:15, 2] = 0.25
+		tileMask[9:15, 13] = 0.25
+		tileMask[9:13, 4] = 0.25
+		tileMask[9:13, 11] = 0.25
+		tileMask[7, 3:5] = 0.25
+		tileMask[7, 11:13] = 0.25
+
+		tileMask[7, 5:11] = 0.75
+
+	elif k == "tableLEnd":
+		tileMask[6, 8:16] = 0.25
+		tileMask[10, 4:16] = 0.25
+		tileMask[7, 7:9] = 0.25
+		tileMask[8, 6:8] = 0.25
+		tileMask[9, 5:7] = 0.25
+		tileMask[11:, 4] = 0.25
+		tileMask[11:14, 8] = 0.25
+
+		tileMask[7, 9:] = 0.75
+		tileMask[8, 8:] = 0.75
+		tileMask[9, 7:] = 0.75
+
+	elif "tableLMid" in k:
+		tileMask[6, :] = 0.25
+		tileMask[10, :] = 0.25
+
+		tileMask[7, :] = 0.75
+		tileMask[8, :] = 0.75
+		tileMask[9, :] = 0.75
+
+		tileMask[7, 7] = 0.25
+		tileMask[8, 8] = 0.25
+		tileMask[9, 7] = 0.25
+
+		if k == "tableLMidLegless":
+			tileMask[11:, 1] = 0.25
+			tileMask[11:14, 5] = 0.25
+			tileMask[11:14, 10] = 0.25
+			tileMask[11:, 14] = 0.25
+
+	tileMask[:, :, 3] = np.where(tileMask[:, :, 0] > 0., 255., 0.)
+	tileDecorMasks[k] = tileMask
+
+	if k in tileDecorMirrorKeys:
+		tileDecorMasks[k + "Mirrored"] = tileMask[:, ::-1, :]
+
 tileDirectory = "./tiles/"
 paletteNames = ("BRIGHT", "DARK", "GRAY")
 p = 0
@@ -290,4 +361,16 @@ for palette in (colorsBright, colorsDark, colorsGray):
 		# From the above comments, we have 37 + 36 + 11 = 84 different textures.
 		# Across 72 colors, we have 84 * 72 = 6048 different tiles in total.
 		# On disk, this is about 24 MB.
+
+		for k in tileDecorMasks.keys():
+			fileSuffix = (
+				shadeName + paletteString if p < 2 else paletteString + str(c)
+			) + '-' + k.upper()
+
+			mask = tileDecorMasks[k].copy()
+			mask[:, :, :3] *= shade
+
+			cv.imwrite(
+				tileDirectory + "DECOR-" + fileSuffix + ".png", mask.astype(np.uint8)
+			)
 	p += 1
