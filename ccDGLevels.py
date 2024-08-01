@@ -489,6 +489,13 @@ class Caves:
 		self.roomAvgRad = np.sqrt(w * h * raap / np.pi).round().astype(int)
 		self.carveSize = max(1, int(round(self.roomAvgRad / self.carveQuotient)))
 
+		print(
+			"Notice: average room radius is {:d}, "
+			"average carve radius is {:d}.".format(
+				self.roomAvgRad, self.carveSize
+			)
+		)
+
 		self.hallAvgCount = conn
 		self.hallRadius = thick
 		self.varianceHallRadius = varihr
@@ -499,6 +506,30 @@ class Caves:
 		self.carvePolarities = []
 		self.halls = []
 		self.hallCounts = []
+
+		# Warnings
+		if self.roomAvgRad >= (self.size // 2).x:
+			print(
+				"Warning: room average radius is larger than or equal to level width "
+				"({:d} >= {:d}); Generation issues may occur.".format(
+					self.roomAvgRad, self.size.x
+				)
+			)
+
+		elif self.roomAvgRad >= (self.size // 2).y:
+			print(
+				"Warning: room average radius is larger than or equal to level height "
+				"({:d} >= {:d}); Generation issues may occur.".format(
+					self.roomAvgRad, self.size.y
+				)
+			)
+
+		if self.roomCount * self.roomAvgAreaPercent > 1.:
+			print(
+				"Warning: Product of room count and room average area "
+				"is greater than 1; Generation errors will occur "
+				"during Maximum Generation attempts calculation."
+			)
 
 	def __str__(self) -> str:
 		"""String representation"""
@@ -625,16 +656,25 @@ class Caves:
 		if attemptsOverride > 0:
 			maxAttempts = attemptsOverride
 		else: # $$ n_{rooms} \times \max(pad, 1)
-			maxAttempts = int( # \times 10^{-\ln(1 - n_{rooms} \times a_{avg})}
-				round( # \times e^{1 + n_{rooms} \times a_{avg}} $$
-					self.roomCount * max(self.padding, 1)
-					* 10. ** (
-						-np.log(1. - self.roomCount * self.roomAvgAreaPercent)
-					) * np.e ** (
-						1. + self.roomCount * self.roomAvgAreaPercent
+			try:
+				maxAttempts = int( # \times 10^{-\ln(1 - n_{rooms} \times a_{avg})}
+					round( # \times e^{1 + n_{rooms} \times a_{avg}} $$
+						self.roomCount * max(self.padding, 1)
+						* 10. ** (
+							-np.log(1. - self.roomCount * self.roomAvgAreaPercent)
+						) * np.e ** (
+							1. + self.roomCount * self.roomAvgAreaPercent
+						)
 					)
+				) # Allows for more filled dungeons to have more attempts
+			except ValueError as ve:
+				print(
+					"Error: Calculation of Maximum Generation attempts failed! "
+					"Information: <{:s}>".format(str(ve))
 				)
-			) # Allows for more filled dungeons to have more attempts
+				return
+
+		print("Maximum Generation attempts: {:d}".format(maxAttempts))
 		# Try to generate valid rooms
 		while len(self.rooms) < self.roomCount:
 			attempts += 1
@@ -642,33 +682,43 @@ class Caves:
 			newRadius = self.roomAvgRad + noise
 
 			originSpace = Point(self.size.x - newRadius, self.size.y - newRadius)
-			newOrigin = Point(
-				*np.random.randint((newRadius, newRadius), originSpace.tupl, 2)
-			)
-
-			newRoom = Circle(newOrigin.x, newOrigin.y, newRadius)
-			newRoomPadZone = Circle(
-				newOrigin.x, newOrigin.y,
-				newRadius + self.padding
-			).getMaskFill(self.size.x + self.padding, self.size.y + self.padding)
-
-			nonOverlapping = True
-			for m in roomMasks:
-				if np.any(newRoomPadZone & m):
-					nonOverlapping = False
-					break
-
-			if nonOverlapping:
-				self.rooms.append(newRoom)
-				roomMasks.append(
-					newRoom.getMaskFill(
-						self.size.x + self.padding, self.size.y + self.padding
+			
+			if newRadius >= originSpace.tupl[0] or newRadius >= originSpace.tupl[1]:
+				print(
+					"Warning: newRadius = {:d} too large for circle origin space "
+					"between {:s} and {:s}; retrying...".format(
+						newRadius, str((newRadius, newRadius)), str(originSpace.tupl)
 					)
 				)
+			
+			else:
+				newOrigin = Point(
+					*np.random.randint((newRadius, newRadius), originSpace.tupl, 2)
+				)
 
-				print(noise, newRadius, newOrigin)
-				print(newRoom)
-				print()
+				newRoom = Circle(newOrigin.x, newOrigin.y, newRadius)
+				newRoomPadZone = Circle(
+					newOrigin.x, newOrigin.y,
+					newRadius + self.padding
+				).getMaskFill(self.size.x + self.padding, self.size.y + self.padding)
+
+				nonOverlapping = True
+				for m in roomMasks:
+					if np.any(newRoomPadZone & m):
+						nonOverlapping = False
+						break
+
+				if nonOverlapping:
+					self.rooms.append(newRoom)
+					roomMasks.append(
+						newRoom.getMaskFill(
+							self.size.x + self.padding, self.size.y + self.padding
+						)
+					)
+
+					print(noise, newRadius, newOrigin)
+					print(newRoom)
+					print()
 
 			if attempts > maxAttempts:
 				if len(self.rooms) < self.roomCount:
