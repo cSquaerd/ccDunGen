@@ -17,6 +17,39 @@ def maskToString(mask : np.array) -> str:
 
 	return s
 
+# Abstract Class
+class Level:
+	def __init__(self):
+		raise NotImplementedError(
+			"Please implement a subclass of Level to construct an instance object."
+		)
+	
+	def __str__(self):
+		raise NotImplementedError(
+			"Please implement a subclass of Level to represent it as a string."
+		)
+
+	def __repr__(self):
+		return self.__str__()
+
+	def gen(self, showProgress : bool = False):
+		raise NotImplementedError(
+			"Please implement a subclass of Level to generate a dungeon,\n"
+			"and to optionally see it progress phase-by-phase of generation."
+		)
+
+	def draw(self, mode : str = "") -> np.array:
+		raise NotImplementedError(
+			"Please implement a subclass of Level to draw a generated dungeon,\n"
+			"and to optionally draw it in different modes."
+		)
+
+	def getImageData(self) -> dict:
+		raise NotImplementedError(
+			"Please implement a subclass of Level to get all image layers "
+			"of a dungeon"
+		)
+
 class Catacombs:
 	"""Nethack style dungeon"""
 	def __init__(
@@ -139,7 +172,7 @@ class Catacombs:
 					print("Your dungeon will only have", len(self.rooms), "rooms")
 				break
 
-		print("Attemped room generations", attempts, "times.")
+		print("Attempted room generations", attempts, "times.")
 
 	def genHalls(self, reset : bool):
 		"""Randomly generate hallways"""
