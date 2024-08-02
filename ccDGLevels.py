@@ -555,11 +555,8 @@ class Caves:
 		"""Generic representation"""
 		return self.__str__()
 
-	def genCarves(self, reset : bool, attemptsOverride : int = 0):
+	def genCarves(self, attemptsOverride : int = 0, showProgress : bool = False):
 		"""Randomly carve rooms"""
-		if not reset:
-			return
-
 		self.carves = []
 		self.carvePolarities = []
 		
@@ -639,10 +636,14 @@ class Caves:
 			self.carvePolarities.append(polarityGroup)
 			print("Generated", len(carveGroup), "carves with", attempts, "attempts for room", r)
 
-	def genRooms(self, reset : bool, attemptsOverride : int = 0):
+		if showProgress:
+			print(maskToString(self.draw()))
+
+	def genRooms(
+		self, attemptsOverride : int = 0, attemptsOverrideCarve : int = 0,
+		tailCall : bool = False, showProgress : bool = False
+	):
 		"""Randomly generate rooms"""
-		if not reset:
-			return
 		# Clear old rooms and halls
 		self.rooms = []
 		self.carves = []
@@ -727,13 +728,18 @@ class Caves:
 					break
 
 		print("Attemped room generation", attempts, "times.")
-		#print("Now carving out each room...")
-		#self.genCarves(True)
 
-	def genHalls(self, reset : bool):
+		if showProgress:
+			print(maskToString(self.draw()))
+
+		if tailCall:
+			print("Now carving out each room...")
+			self.genCarves(attemptsOverrideCarve, showProgress)
+			print("Now connecting rooms...")
+			self.genHalls(showProgress)
+
+	def genHalls(self, showProgress : bool = False):
 		"""Randomly generate hallways"""
-		if not reset:
-			return
 		# Erase old hallways	
 		self.halls = []
 		self.hallCounts = [0 for i in range(len(self.rooms))]
@@ -813,6 +819,12 @@ class Caves:
 				self.hallCounts[j] += 1
 				k += 1
 				k %= len(distances)
+		
+		if showProgress:
+			print(maskToString(self.draw()))
+
+	def gen(self, showProgress : bool = False):
+		self.genRooms(tailCall = True, showProgress = showProgress)
 
 	def draw(self, mode : str = ""):
 		"""
