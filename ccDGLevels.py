@@ -61,15 +61,34 @@ class Catacombs:
 		thick : int = 1, varih : int = 0
 	):
 		"""
-		Requires a width & height in cells, a room count, an average area per room
-		expressed as a percentage (0.0 -> 1.0), absolute deviations in room size
-		in the x and y directions, how many connections each room should have
-		at minimum, and whether to shift the midpoint of hallways or not.
-		
-		Optionally, padding widths in the x and y directions,
-		a hallway thickness, and an absolute deviation in hallway thickness
-		can be specified.
+Catacombs constructor
+
+Required arguments (positional):
+  0.  w       : int   : total width of map                        : .size.x
+  1.  h       : int   : total height of map                       : .size.y
+  2.  rct     : int   : room count                                : .roomCount
+  3.  raap    : float : room average area as percentage           : .roomAvgAreaPercent
+  4.  varix   : int   : absolute deviation of room width          : .variance.x
+  5.  variy   : int   : absolute deviation of room height         : .variance.y
+  6.  conn    : int   : maximum connections out of each room      : .hallAvgCount
+  7.  doShift : bool  : shift hallway connections from the middle : .doHallShifting
+
+Optional arguments (positional):
+  8.  padx    : int = 0 : minimum horizontal space between rooms  : .padding.x
+  9.  pady    : int = 0 : minimum vertical space between rooms    : .padding.y
+  10. thick   : int = 1 : width of hallways                       : .hallThickness
+  11. varih   : int = 0 : absolute deviation of hallway thickness : .varianceHall
 		"""
+
+		#Requires a width & height in cells, a room count, an average area per room
+		#expressed as a percentage (0.0 -> 1.0), absolute deviations in room size
+		#in the x and y directions, how many connections each room should have
+		#at minimum, and whether to shift the midpoint of hallways or not.
+		
+		#Optionally, padding widths in the x and y directions,
+		#a hallway thickness, and an absolute deviation in hallway thickness
+		#can be specified.
+		
 		self.size = Point(w, h)
 		self.roomCount = rct
 		self.roomAvgAreaPercent = raap
