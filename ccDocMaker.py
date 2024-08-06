@@ -28,8 +28,13 @@ def getDocStringWithArgs(
 	if isMethod:
 		i_argStart = 1
 		argCount -= 1
+		if len(classMemberNames) > 0:
+			writeClassMemberNames = True
+		else:
+			writeClassMemberNames = False
 	else:
 		i_argStart = 0
+		writeClassMemberNames = False
 	
 	argNames = f.__code__.co_varnames[i_argStart:argCount + i_argStart]
 
@@ -42,7 +47,7 @@ def getDocStringWithArgs(
 				)
 			)
 		)
-	if isMethod and len(argNames) != len(classMemberNames):
+	if isMethod and writeClassMemberNames and len(argNames) != len(classMemberNames):
 		raise ValueError(
 			(
 				"Length mismatch between number of arguments "
@@ -74,12 +79,13 @@ def getDocStringWithArgs(
 	else:
 		typeWidthDefaults = 0
 		defaultsWidth = 0
+		
+	descriptionsWidth = max(
+		map(lambda s : len(s), descriptions[:nonDefaultCount])
+	)
 
 	if typeWidthDefaults > 0 or defaultsWidth > 0:
 		defaultsWidthCombined = typeWidthDefaults + 3 + defaultsWidth
-		descriptionsWidth = max(
-			map(lambda s : len(s), descriptions[:nonDefaultCount])
-		)
 		descriptionsWidthDefaults = max(
 			map(lambda s : len(s), descriptions[nonDefaultCount:])
 		)
@@ -106,7 +112,8 @@ def getDocStringWithArgs(
 				i, numberingWidth, arg, nameWidth, hint, typeWidth,
 				descriptions[i], descriptionsWidth
 			) + (
-				" {:s}\n".format(classMemberNames[i]) if isMethod
+				" {:s}\n".format(classMemberNames[i])
+				if isMethod and writeClassMemberNames
 				else '\n'
 			)
 		)
@@ -126,7 +133,8 @@ def getDocStringWithArgs(
 				str(defaultValue), defaultsWidth, descriptions[i],
 				descriptionsWidthDefaults
 			) + (
-				" {:s}\n".format(classMemberNames[i]) if isMethod
+				" {:s}\n".format(classMemberNames[i])
+				if isMethod and writeClassMemberNames
 				else '\n'
 			)
 		)
