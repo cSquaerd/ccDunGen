@@ -15,7 +15,6 @@ typeLengther = lambda hints, arg : (
 def getDocStringWithArgs(
 	f : "function", descriptions : list, indentation : int = 2,
 	isMethod : bool = False, classMemberNames : list = []
-
 ) -> str:
 	if not hasattr(f, "__code__"):
 		raise ValueError(
@@ -40,6 +39,15 @@ def getDocStringWithArgs(
 				"Length mismatch between number of arguments "
 				"and number of argument descriptions ({:d} vs. {:d})".format(
 					len(argNames), len(descriptions)
+				)
+			)
+		)
+	if isMethod and len(argNames) != len(classMemberNames):
+		raise ValueError(
+			(
+				"Length mismatch between number of arguments "
+				"and number of argument class member names ({:d} vs. {:d})".format(
+					len(argNames), len(classMemberNames)
 				)
 			)
 		)
@@ -90,7 +98,8 @@ def getDocStringWithArgs(
 				i, numberingWidth, arg, nameWidth, hint, typeWidth,
 				descriptions[i], descriptionsWidth
 			) + (
-				'\n'
+				" {:s}\n".format(classMemberNames[i]) if isMethod
+				else '\n'
 			)
 		)
 
@@ -102,14 +111,15 @@ def getDocStringWithArgs(
 		s += (
 			' ' * indentation
 			+ (
-				"{: >{:d}d}. {: <{:d}s} : {: <{:d}s} = {: >{:d}s} : "
+				"{: >{:d}d}. {: <{:d}s} : {: >{:d}s} = {: <{:d}s} : "
 				"{: <{:d}s} :"
 			).format(
 				i, numberingWidth, arg, nameWidth, hint, typeWidthDefaults,
 				str(defaultValue), defaultsWidth, descriptions[i],
 				descriptionsWidthDefaults
 			) + (
-				'\n'
+				" {:s}\n".format(classMemberNames[i]) if isMethod
+				else '\n'
 			)
 		)
 
