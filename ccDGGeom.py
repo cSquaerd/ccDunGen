@@ -4,6 +4,8 @@ np.set_printoptions(
 	formatter = {"bool" : lambda b : '#' if b else '_'}
 ) # Above makes pre-imaging debugging easier to view
 
+from ccDocMaker import getDocStringWithArgs
+
 class Point:
 	"""Numpy supporting point class"""
 	def __init__(self, x : int, y : int):
@@ -48,6 +50,12 @@ class Point:
 	def __or__(self, other) -> int:
 		"""Manhattan a.k.a. taxicab distance"""
 		return abs(self.x - other.x) + abs(self.y - other.y)
+
+Point.__init__.__doc__ += getDocStringWithArgs(
+	Point.__init__,
+	["horizontal coordinate", "vertical coordinate"],
+	4, True, [".x", ".y"]
+)
 
 class Shape:
 	"""Base shape class"""
