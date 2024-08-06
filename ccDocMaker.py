@@ -77,14 +77,22 @@ def getDocStringWithArgs(
 
 	if typeWidthDefaults > 0 or defaultsWidth > 0:
 		defaultsWidthCombined = typeWidthDefaults + 3 + defaultsWidth
-		descriptionsWidth = max(map(lambda s : len(s), descriptions))
-		descriptionsWidthDefaults = descriptionsWidth
+		descriptionsWidth = max(
+			map(lambda s : len(s), descriptions[:nonDefaultCount])
+		)
+		descriptionsWidthDefaults = max(
+			map(lambda s : len(s), descriptions[nonDefaultCount:])
+		)
 
-		if defaultsWidthCombined > typeWidth:
-			descriptionsWidth += defaultsWidthCombined - typeWidth
-		elif defaultsWidthCombined < typeWidth:
-			descriptionsWidthDefaults += typeWidth - defaultsWidthCombined
+		nonDefaultWidthTotal = typeWidth + descriptionsWidth
+		defaultWidthTotal = defaultsWidthCombined + descriptionsWidthDefaults
+		widthDelta = abs(nonDefaultWidthTotal - defaultWidthTotal)
 
+		if nonDefaultWidthTotal > defaultWidthTotal:
+			descriptionsWidthDefaults += widthDelta
+		elif defaultWidthTotal > nonDefaultWidthTotal:
+			descriptionsWidth += widthDelta
+		
 	s = '\n' # Start with this for padding with the help() builtin
 	for i in range(argCount - defaultCount):
 		arg = argNames[i]
