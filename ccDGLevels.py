@@ -107,6 +107,26 @@ class Catacombs:
 		self.rooms = []
 		self.halls = []
 		self.hallCounts = []
+
+	__init__.__doc__ = getDocStringWithArgs(
+		__init__,
+		[ # Descriptions
+			"total width of map", "total height of map",
+			"room count", "room average area as percentage",
+			"absolute deviation of room width", "absolute deviation of room height",
+			"maximum connecting hallways out of each room",
+			"shift hallway connection bisector from middle",
+			"minimum horizontal space between rooms",
+			"minimum vertical space between rooms",
+			"width of hallways", "absolute deviation of hallway width"
+		],
+		4, True,
+		[ # Class Member Names
+			".size.x", ".size.y", ".roomCount", ".roomAvgAreaPercent",
+			".variance.x", ".variance.y", ".hallAvgCount", ".doHallShifting",
+			".padding.x", ".padding.y", ".hallThickness", ".varianceHall"
+		]
+	)
 	
 	def __str__(self) -> str:
 		"""String representation"""
@@ -503,26 +523,6 @@ class Catacombs:
 			"all" : layers[4],
 			"dungeonType": "catacombs"
 		}
-
-Catacombs.__init__.__doc__ = getDocStringWithArgs(
-	Catacombs.__init__,
-	[ # Descriptions
-		"total width of map", "total height of map",
-		"room count", "room average area as percentage",
-		"absolute deviation of room width", "absolute deviation of room height",
-		"maximum connecting hallways out of each room",
-		"shift hallway connection bisector from middle",
-		"minimum horizontal space between rooms",
-		"minimum vertical space between rooms",
-		"width of hallways", "absolute deviation of hallway width"
-	],
-	4, True,
-	[ # Class Member Names
-		".size.x", ".size.y", ".roomCount", ".roomAvgAreaPercent",
-		".variance.x", ".variance.y", ".hallAvgCount", ".doHallShifting",
-		".padding.x", ".padding.y", ".hallThickness", ".varianceHall"
-	]
-)
 
 class Caves:
 	"""Circle-based caves and tunnels"""

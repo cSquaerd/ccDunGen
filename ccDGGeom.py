@@ -15,6 +15,12 @@ class Point:
 		self.dict = {'y': y, 'x': x}
 		self.npar = np.array([y, x], int)
 		self.tupl = (x, y)
+
+	__init__.__doc__ += getDocStringWithArgs(
+		__init__,
+		["horizontal coordinate", "vertical coordinate"],
+		4, True, [".x", ".y"]
+	)
 	
 	def __str__(self) -> str:
 		"""String representation"""
@@ -50,12 +56,6 @@ class Point:
 	def __or__(self, other) -> int:
 		"""Manhattan a.k.a. taxicab distance"""
 		return abs(self.x - other.x) + abs(self.y - other.y)
-
-Point.__init__.__doc__ += getDocStringWithArgs(
-	Point.__init__,
-	["horizontal coordinate", "vertical coordinate"],
-	4, True, [".x", ".y"]
-)
 
 class Shape:
 	"""Base shape class"""
