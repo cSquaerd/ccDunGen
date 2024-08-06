@@ -13,22 +13,36 @@ typeLengther = lambda hints, arg : (
 )
 
 def getDocStringWithArgs(
-	f : "function", isMethod : bool = False, indentation : int = 2
+	f : "function", descriptions : list, indentation : int = 2,
+	isMethod : bool = False, classMemberNames : list = []
+
 ) -> str:
 	if not hasattr(f, "__code__"):
-		print("Error: provided function has no .__code__ element, probably a builtin; Returning...")
-		return ""
+		raise ValueError(
+			"Provided function has no .__code__ element, probably a builtin."
+		)
 
+	hints = f.__annotations__
+	defaults = f.__defaults__
+	argCount = f.__code__.co_argcount
+	
 	if isMethod:
 		i_argStart = 1
+		argCount -= 1
 	else:
 		i_argStart = 0
 	
-	hints = f.__annotations__
-	defaults = f.__defaults__
-	
-	argCount = f.__code__.co_argcount
-	argNames = f.__code__.co_varnames[i_argStart:argCount]
+	argNames = f.__code__.co_varnames[i_argStart:argCount + i_argStart]
+
+	if len(argNames) != len(descriptions):
+		raise ValueError(
+			(
+				"Length mismatch between number of arguments "
+				"and number of argument descriptions ({:d} vs. {:d})".format(
+					len(argNames), len(descriptions)
+				)
+			)
+		)
 	
 	try:
 		defaultCount = len(defaults)
@@ -48,8 +62,20 @@ def getDocStringWithArgs(
 			map(lambda a : typeLengther(hints, a),
 			argNames[argCount - defaultCount:])
 		)
+		defaultsWidth = max(map(lambda d : len(str(d)), defaults))
 	else:
-		typeWidthDefaults = 1
+		typeWidthDefaults = 0
+		defaultsWidth = 0
+
+	if typeWidthDefaults > 0 or defaultsWidth > 0:
+		defaultsWidthCombined = typeWidthDefaults + 3 + defaultsWidth
+		descriptionsWidth = max(map(lambda s : len(s), descriptions))
+		descriptionsWidthDefaults = descriptionsWidth
+
+		if defaultsWidthCombined > typeWidth:
+			descriptionsWidth += defaultsWidthCombined - typeWidth
+		elif defaultsWidthCombined < typeWidth:
+			descriptionsWidthDefaults += typeWidth - defaultsWidthCombined
 
 	s = ""
 	for i in range(argCount - defaultCount):
@@ -57,9 +83,15 @@ def getDocStringWithArgs(
 		hint = typeScrubber(hints, arg)
 		s += (
 			' ' * indentation
-			+ "{: <{:d}d}. {: <{:d}s} : {: <{:d}s} : ".format(
-				i, numberingWidth, arg, nameWidth, hint, typeWidth
-			) + '\n'
+			+ (
+				"{: >{:d}d}. {: <{:d}s} : {: <{:d}s} : "
+				"{: <{:d}s} :"
+			).format(
+				i, numberingWidth, arg, nameWidth, hint, typeWidth,
+				descriptions[i], descriptionsWidth
+			) + (
+				'\n'
+			)
 		)
 
 	for i in range(argCount - defaultCount, argCount):
@@ -69,10 +101,16 @@ def getDocStringWithArgs(
 
 		s += (
 			' ' * indentation
-			+ "{: <{:d}d}. {: <{:d}s} : {: <{:d}s} = {: >{:d}s} : ".format(
+			+ (
+				"{: >{:d}d}. {: <{:d}s} : {: <{:d}s} = {: >{:d}s} : "
+				"{: <{:d}s} :"
+			).format(
 				i, numberingWidth, arg, nameWidth, hint, typeWidthDefaults,
-				str(defaultValue), 10
-			) + '\n'
+				str(defaultValue), defaultsWidth, descriptions[i],
+				descriptionsWidthDefaults
+			) + (
+				'\n'
+			)
 		)
 
 	return s
