@@ -85,7 +85,7 @@ def getDocStringWithArgs(
 		elif defaultsWidthCombined < typeWidth:
 			descriptionsWidthDefaults += typeWidth - defaultsWidthCombined
 
-	s = ""
+	s = '\n' # Start with this for padding with the help() builtin
 	for i in range(argCount - defaultCount):
 		arg = argNames[i]
 		hint = typeScrubber(hints, arg)

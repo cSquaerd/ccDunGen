@@ -1,4 +1,5 @@
 from ccDGGeom import np, Point, Rectangle, Line, Circle
+from ccDocMaker import getDocStringWithArgs
 
 def maskToString(mask : np.array) -> str:
 	"""
@@ -60,25 +61,25 @@ class Catacombs:
 		padx : int = 0, pady : int = 0,
 		thick : int = 1, varih : int = 0
 	):
-		"""
-Catacombs constructor
+		"""Fill out via DocMaker"""
+# Original manual docstring
+#Catacombs constructor
 
-Required arguments (positional):
-  0.  w       : int   : total width of map                        : .size.x
-  1.  h       : int   : total height of map                       : .size.y
-  2.  rct     : int   : room count                                : .roomCount
-  3.  raap    : float : room average area as percentage           : .roomAvgAreaPercent
-  4.  varix   : int   : absolute deviation of room width          : .variance.x
-  5.  variy   : int   : absolute deviation of room height         : .variance.y
-  6.  conn    : int   : maximum connections out of each room      : .hallAvgCount
-  7.  doShift : bool  : shift hallway connections from the middle : .doHallShifting
+#Required arguments (positional):
+#  0.  w       : int   : total width of map                        : .size.x
+#  1.  h       : int   : total height of map                       : .size.y
+#  2.  rct     : int   : room count                                : .roomCount
+#  3.  raap    : float : room average area as percentage           : .roomAvgAreaPercent
+#  4.  varix   : int   : absolute deviation of room width          : .variance.x
+#  5.  variy   : int   : absolute deviation of room height         : .variance.y
+#  6.  conn    : int   : maximum connections out of each room      : .hallAvgCount
+#  7.  doShift : bool  : shift hallway connections from the middle : .doHallShifting
 
-Optional arguments (positional):
-  8.  padx    : int = 0 : minimum horizontal space between rooms  : .padding.x
-  9.  pady    : int = 0 : minimum vertical space between rooms    : .padding.y
-  10. thick   : int = 1 : width of hallways                       : .hallThickness
-  11. varih   : int = 0 : absolute deviation of hallway thickness : .varianceHall
-		"""
+#Optional arguments (positional):
+#  8.  padx    : int = 0 : minimum horizontal space between rooms  : .padding.x
+#  9.  pady    : int = 0 : minimum vertical space between rooms    : .padding.y
+#  10. thick   : int = 1 : width of hallways                       : .hallThickness
+#  11. varih   : int = 0 : absolute deviation of hallway thickness : .varianceHall
 
 		#Requires a width & height in cells, a room count, an average area per room
 		#expressed as a percentage (0.0 -> 1.0), absolute deviations in room size
@@ -502,7 +503,27 @@ Optional arguments (positional):
 			"all" : layers[4],
 			"dungeonType": "catacombs"
 		}
-		
+
+Catacombs.__init__.__doc__ = getDocStringWithArgs(
+	Catacombs.__init__,
+	[ # Descriptions
+		"total width of map", "total height of map",
+		"room count", "room average area as percentage",
+		"absolute deviation of room width", "absolute deviation of room height",
+		"maximum connecting hallways out of each room",
+		"shift hallway connection bisector from middle",
+		"minimum horizontal space between rooms",
+		"minimum vertical space between rooms",
+		"width of hallways", "absolute deviation of hallway width"
+	],
+	4, True,
+	[ # Class Member Names
+		".size.x", ".size.y", ".roomCount", ".roomAvgAreaPercent",
+		".variance.x", ".variance.y", ".hallAvgCount", ".doHallShifting",
+		".padding.x", ".padding.y", ".hallThickness", ".varianceHall"
+	]
+)
+
 class Caves:
 	"""Circle-based caves and tunnels"""
 	def __init__(
